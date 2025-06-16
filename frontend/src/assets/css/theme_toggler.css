@@ -1,0 +1,19 @@
+.theme-toggler-container {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    color: var(--text-color);
+}
+
+.theme-toggler-container .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    cursor: pointer;
+    background-color: var(--toggler-bg);
+    border-color: var(--toggler-border);
+}
+
+.theme-toggler-container .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}

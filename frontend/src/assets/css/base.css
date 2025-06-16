@@ -1,0 +1,70 @@
+/* Base Layout Styles */
+body {
+    font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+    /* FIX: Removed background-color to allow the gradient from style.css to show. */
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* --- Offcanvas Side Nav --- */
+.offcanvas#offcanvasNavbar {
+    background-color: rgba(20, 30, 48, 0.85);
+    /* Dark blue with transparency */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#offcanvasNavbar .offcanvas-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#offcanvasNavbar .offcanvas-title {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+#offcanvasNavbar .nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+#offcanvasNavbar .nav-link:hover,
+#offcanvasNavbar .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+/* Position logout at the bottom */
+#offcanvasNavbar .offcanvas-body {
+    display: flex;
+    flex-direction: column;
+}
+
+#offcanvasNavbar .navbar-nav {
+    flex-grow: 1;
+}

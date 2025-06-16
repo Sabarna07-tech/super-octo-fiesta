@@ -1,0 +1,199 @@
+/*
+ * Main style entry point for legacy/compatibility purposes
+ * This file imports all modular CSS files to maintain backward compatibility
+ */
+
+/* Import base styles */
+@import url('./common.css');
+@import url('./base.css');
+
+/* Import page-specific styles */
+@import url('./index.css');
+@import url('./login.css');
+@import url('./dashboard.css');
+@import url('./upload.css');
+@import url('./damage_detection.css');
+
+/* Global Styles */
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    /* FIX: Use CSS variable for background */
+    background: var(--bg-gradient);
+}
+
+h1,
+.page-title,
+.welcome-title,
+.card-title {
+    /* FIX: Use CSS variable for headings */
+    color: var(--heading-color);
+}
+
+.text-muted {
+    /* FIX: Use CSS variable for muted text */
+    color: var(--muted-text-color) !important;
+}
+
+.wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+/* Navbar */
+.navbar {
+    /* FIX: Use CSS variable for navbar background */
+    background: var(--navbar-bg-gradient) !important;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.3rem;
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+    /* FIX: Use CSS variables for footer */
+    background-color: var(--footer-bg);
+    color: var(--footer-text);
+}
+
+.footer .text-muted {
+    color: var(--footer-text) !important;
+}
+
+
+/* Cards */
+.card {
+    border-radius: 10px;
+    /* FIX: Use CSS variables for glassmorphism card */
+    background: var(--glass-card-bg);
+    border: var(--glass-card-border);
+    box-shadow: var(--card-shadow);
+    color: var(--text-color);
+}
+
+.card-header {
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+    font-weight: 500;
+    background-color: transparent;
+    border-bottom: var(--glass-card-border);
+}
+
+
+/* Buttons */
+.btn {
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+
+.btn-primary {
+    /* FIX: Use CSS variable for primary button */
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+.btn-success {
+    background-color: #2ecc71;
+    border-color: #2ecc71;
+}
+
+.btn-success:hover {
+    background-color: #27ae60;
+    border-color: #27ae60;
+}
+
+.btn-info {
+    background-color: #3498db;
+    border-color: #3498db;
+    color: #fff;
+}
+
+.btn-info:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+    color: #fff;
+}
+
+
+/* Form Controls */
+.form-control,
+.form-select {
+    border-radius: 5px;
+    padding: 0.5rem 0.75rem;
+    /* FIX: Use the new form-specific variables */
+    background-color: var(--form-bg);
+    color: var(--form-text-color);
+    border: 1px solid var(--form-border-color);
+}
+
+.form-control::placeholder {
+    color: var(--muted-text-color);
+}
+
+.form-control:focus,
+.form-select:focus {
+    /* This part can remain as it correctly uses the primary color for the focus ring */
+    background-color: var(--form-bg);
+    /* Ensure background doesn't change on focus */
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+    color: var(--form-text-color);
+}
+
+/* Custom Modal for Logout */
+.modal-content {
+    background-color: var(--footer-bg);
+    color: var(--heading-color);
+    border-radius: 8px;
+    border: var(--glass-card-border);
+}
+
+.modal-header {
+    border-bottom: var(--glass-card-border);
+}
+
+.modal-body {
+    background-color: var(--bg-gradient);
+}
+
+.modal-footer {
+    border-top: var(--glass-card-border);
+}
+
+/* Table Styles */
+.table {
+    color: var(--text-color);
+}
+
+.table th,
+.table td {
+    border-color: var(--glass-card-border);
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.2);
+    color: var(--heading-color);
+}
+/* ... existing rules ... */
+
+/* FIX: Give dropdown options a solid background for readability */
+.form-select option {
+    background: var(--menu-bg);
+    color: var(--form-text-color);
+}

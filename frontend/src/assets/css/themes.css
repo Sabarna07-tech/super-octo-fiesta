@@ -1,0 +1,52 @@
+/* Light Mode Variables */
+:root {
+    --primary-color: #007bff;
+    --bg-gradient: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%);
+    --navbar-bg-gradient: linear-gradient(135deg, #0062cc, #007bff);
+    --card-bg: rgba(255, 255, 255, 1);
+    --card-border: 1px solid rgba(0, 0, 0, 0.125);
+    --text-color: #37597b;
+    --heading-color: #000000;
+    --muted-text-color: #6c757d;
+    --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --glass-card-bg: rgba(255, 255, 255, 0.8);
+    --glass-card-border: 1px solid rgba(255, 255, 255, 1);
+    --toggler-bg: #ccc;
+    --toggler-border: #ccc;
+    --footer-bg: #e9ecef;
+    --footer-text: #6c757d;
+    --form-bg: #ffffff;
+    --form-border-color: #ced4da;
+    --form-text-color: #212529;
+    
+        /* --- FIX START: Add solid background for menus --- */
+    --menu-bg: #ffffff;
+    /* Standard bootstrap dark text */
+    /* --- FIX END --- */
+}
+
+/* Dark Mode Variables */
+.dark-mode {
+    --primary-color: #3498db;
+    --bg-gradient: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    --navbar-bg-gradient: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    --card-bg: rgba(255, 255, 255, 0.1);
+    --card-border: 1px solid rgba(255, 255, 255, 0.2);
+    --text-color: #e0e0e0;
+    --heading-color: #ffffff;
+    --muted-text-color: #bdc3c7;
+    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+    --glass-card-bg: rgba(255, 255, 255, 0.1);
+    --glass-card-border: 1px solid rgba(255, 255, 255, 0.2);
+    --toggler-bg: rgba(255, 255, 255, 0.2);
+    --toggler-border: rgba(255, 255, 255, 0.3);
+    --footer-bg: #2c3e50;
+    --footer-text: #6c757d;
+        --form-bg: #ffffff;
+        --form-border-color: #ced4da;
+        --form-text-color: #212529;
+    
+        /* --- FIX START: Add solid background for menus --- */
+        --menu-bg: #ffffff;
+    /* --- FIX END --- */
+}
