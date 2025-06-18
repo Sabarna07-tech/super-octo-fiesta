@@ -1,15 +1,17 @@
-# Use the full (non-slim) Python 3.10 image for maximum compatibility with all libraries
-FROM python:3.10-bookworm
+# Use an official Python runtime as a parent image
+FROM python:3.12-slim
 
-# Install system dependencies, including build tools
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential libgl1-mesa-glx libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+# FIX: Install ALL system dependencies required by OpenCV
+RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
 
+# Set the working directory in the container
 WORKDIR /app
 
+# Copy the requirements file into the container
 COPY requirements.txt .
+
+# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application's code into the container
 COPY . .
-
-# The command will be overridden by docker-compose's gunicorn command
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
