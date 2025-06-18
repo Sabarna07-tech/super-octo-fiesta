@@ -21,8 +21,11 @@ class FrameExtractor:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"FrameExtractor using device: {self.device}")
 
+        # Access the nested frame extractor config
+        frame_config = self.config.FRAME_EXTRACTOR_CONFIG
+
         # Load YOLO model from the path specified in the app config
-        model_path = self.config.get('MODEL_PATH', '')
+        model_path = frame_config.get('MODEL_PATH', '')
         if os.path.exists(model_path):
             self.model = YOLO(model_path)
             if torch.cuda.is_available():
@@ -33,7 +36,7 @@ class FrameExtractor:
 
         # Initialize DeepSort tracker
         self.tracker = DeepSort(
-            max_age=self.config.get('DEEPSORT_MAX_AGE', 150),
+            max_age=frame_config.get('DEEPSORT_MAX_AGE', 150),
             n_init=3,
             nms_max_overlap=1.0,
             max_cosine_distance=0.3
@@ -46,9 +49,11 @@ class FrameExtractor:
         
         Returns the number of frames saved and a list of their S3 keys.
         """
-        CONF_THR = self.config['CONFIDENCE_THRESHOLD']
-        WAGON_CLASS_ID = self.config['WAGON_CLASS_ID']
-        CAPTURE_DELAY = self.config['CAPTURE_DELAY']
+        # Access the nested frame extractor config
+        frame_config = self.config.FRAME_EXTRACTOR_CONFIG
+        CONF_THR = frame_config.get('CONFIDENCE_THRESHOLD')
+        WAGON_CLASS_ID = frame_config.get('WAGON_CLASS_ID')
+        CAPTURE_DELAY = frame_config.get('CAPTURE_DELAY')
         BUFFER_SIZE = CAPTURE_DELAY + 1
 
         if self.model is None:

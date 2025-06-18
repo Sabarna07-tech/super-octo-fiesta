@@ -1,31 +1,33 @@
 version: '3.8'
 
 services:
-  redis:
-    image: "redis:alpine"
-    ports:
-      - "6379:6379"
-
   backend:
-    build: .
-    command: ["flask", "run", "--host=0.0.0.0"]
+    build:
+      context: .
+      # EDITED: Point the backend to use the same robust Dockerfile as the worker
+      dockerfile: worker.Dockerfile
     ports:
       - "5000:5000"
     volumes:
       - .:/app
-    env_file:
-      - .env
+    command: gunicorn --bind 0.0.0.0:5000 app:app
     depends_on:
       - redis
 
   worker:
-    build: .
-    # This command uses the stable 'threads' pool and the correct entry point
-    command: ["celery", "-A", "services.celery_worker.celery", "worker", "--loglevel=info", "-P", "threads"]
+    build:
+      context: .
+      # This already correctly points to the worker.Dockerfile
+      dockerfile: worker.Dockerfile
     volumes:
       - .:/app
-    env_file:
-      - .env
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
-      - backend
+      
+  redis:
+    image: "redis:7-alpine"
+    ports:
+      - "6379:6379"

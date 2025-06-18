@@ -4,16 +4,24 @@ import jwt
 import datetime
 from functools import wraps
 import os
+import json # Added for JSON processing
+from collections import defaultdict # Added for data aggregation
+import boto3 # Added for direct S3 access
 
-from services.celery_worker import process_s3_videos_task, process_single_s3_video_task
+from ..services.celery_worker import process_single_s3_video_task
 from celery.result import AsyncResult
-# Import the new S3 stats utility
-from services.s3_utils import upload_file_to_s3, list_videos_in_folder, check_file_exists, get_s3_usage_stats, generate_presigned_url
+# Import the S3 utility functions
+from ..services.s3_utils import (
+    upload_file_to_s3, 
+    list_videos_in_folder, 
+    check_file_exists, 
+    get_s3_usage_stats, 
+    generate_presigned_url
+)
 
 # Mock User Data & Roles
 USERS = { "admin": "123", "user": "123", "admin1": "Uploader@123", "viewer": "123" }
 ADMIN_ROLES = { "admin": "standard", "user": "standard", "admin1": "s3_uploader", "viewer": "viewer" }
-ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov'}
 
 api_bp = Blueprint('api', __name__)
 
@@ -99,7 +107,6 @@ def s3_upload(current_user):
     date_obj = datetime.datetime.strptime(upload_date, "%Y-%m-%d")
     upload_date_str = date_obj.strftime("%d-%m-%Y")
     
-    # MODIFIED: The folder path now prepends the base folder from the config
     base_folder = current_app.config['S3_UPLOAD_FOLDER']
     folder_path = os.path.join(
         base_folder,
@@ -172,7 +179,6 @@ def retrieve_s3_videos(current_user):
     except ValueError:
         return jsonify({'success': False, 'error': 'Invalid date format provided.'}), 400
 
-    # MODIFIED: The retrieval path is now consistent with the upload path
     base_folder = current_app.config['S3_UPLOAD_FOLDER']
     s3_prefix = os.path.join(
         base_folder,
@@ -212,7 +218,7 @@ def process_s3_videos(current_user):
 @api_bp.route('/task-status/<task_id>', methods=['GET'])
 @token_required
 def task_status(current_user, task_id):
-    task = AsyncResult(task_id, app=process_s3_videos_task.app)
+    task = AsyncResult(task_id, app=process_single_s3_video_task.app) # Corrected task app context
     
     response = {'state': task.state}
     if task.state == 'PENDING':
@@ -229,18 +235,17 @@ def task_status(current_user, task_id):
 @api_bp.route('/task-cancel/<task_id>', methods=['POST'])
 @token_required
 def cancel_task(current_user, task_id):
-    """Revokes a celery task."""
     if not task_id:
         return jsonify({'success': False, 'error': 'Task ID is missing.'}), 400
     try:
-        # Revoke the task. terminate=True will try to kill the worker process.
-        process_s3_videos_task.AsyncResult(task_id).revoke(terminate=True)
+        # Corrected task app context
+        AsyncResult(task_id, app=process_single_s3_video_task.app).revoke(terminate=True)
         return jsonify({'success': True, 'message': f'Task {task_id} cancellation request sent.'})
     except Exception as e:
-        # Log the exception
         current_app.logger.error(f"Error cancelling task {task_id}: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to send cancellation request.'}), 500
 
+# Consolidated and corrected /system-status route
 @api_bp.route('/system-status', methods=['GET'])
 @token_required
 def get_system_status(current_user):
@@ -259,7 +264,74 @@ def get_system_status(current_user):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Consolidated and corrected /chart-data route
 @api_bp.route('/chart-data', methods=['GET'])
 @token_required
 def get_chart_data(current_user):
     return jsonify({ "damage_by_date": {"labels": ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'], "data": [2, 3, 1, 5, 4]}, "damage_types": {"labels": ['Scratch', 'Dent', 'Crack', 'Rust'], "data": [5, 3, 2, 2]} })
+
+
+# --- NEW ROUTE for Comparison Details ---
+@api_bp.route('/comparison-details/<path:s3_path>', methods=['GET'])
+@token_required
+def get_comparison_details(current_user, s3_path):
+    """
+    Fetches comparison details (JSON and images) from a specified S3 path.
+    """
+    bucket_name = current_app.config['S3_BUCKET']
+    s3_client = boto3.client('s3', region_name=current_app.config['S3_REGION'])
+    
+    # Structure to hold data for each wagon, grouped by wagon_id
+    wagon_details_map = defaultdict(lambda: {'wagon_id': None, 'left_view_details': [], 'right_view_details': []})
+
+    for view in ['left', 'right']:
+        full_prefix = f"{s3_path}/{view}/"
+        try:
+            paginator = s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=bucket_name, Prefix=full_prefix)
+
+            for page in pages:
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    if not key.endswith('.json'):
+                        continue # Process only JSON files to start
+
+                    file_name = os.path.basename(key)
+                    try:
+                        wagon_id = int(file_name.split('_')[1].split('.')[0])
+                    except (IndexError, ValueError):
+                        continue # Skip files that don't match the naming convention
+
+                    wagon_details_map[wagon_id]['wagon_id'] = wagon_id
+                    
+                    # Get JSON content
+                    json_obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+                    json_content_str = json_obj['Body'].read().decode('utf-8')
+                    json_data = json.loads(json_content_str)
+                    
+                    # Find corresponding image and get presigned URL
+                    image_key = key.replace('.json', '.png')
+                    image_url = generate_presigned_url(bucket_name, image_key)
+                    
+                    # Format data as per the frontend's requirement
+                    formatted_detail = {
+                        'old': f"{len(json_data.get('OLD', []))} items",
+                        'new': f"{len(json_data.get('NEW', []))} items",
+                        'resolved': f"{len(json_data.get('RESOLVED', []))} items",
+                        'image': image_url
+                    }
+                    
+                    if view == 'left':
+                        wagon_details_map[wagon_id]['left_view_details'].append(formatted_detail)
+                    else:
+                        wagon_details_map[wagon_id]['right_view_details'].append(formatted_detail)
+
+        except Exception as e:
+            current_app.logger.error(f"Error processing S3 path {full_prefix}: {e}")
+            # Continue to next view if one fails
+            continue
+
+    # Convert the map to a sorted list for consistent ordering
+    response_data = sorted(wagon_details_map.values(), key=lambda x: x['wagon_id'])
+    
+    return jsonify(success=True, details=response_data)

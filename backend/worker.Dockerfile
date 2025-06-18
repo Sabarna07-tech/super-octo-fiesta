@@ -1,4 +1,4 @@
-# Use the full (non-slim) Python 3.10 image for maximum compatibility with all libraries
+# Use the full (non-slim) Python 3.10 image for maximum compatibility with ML libraries
 FROM python:3.10-bookworm
 
 # Install system dependencies, including build tools
@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 WORKDIR /app
 
 COPY requirements.txt .
+# This pip command will succeed in the full environment
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# The command will be overridden by docker-compose's gunicorn command
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# Default command for the worker (can be overridden in docker-compose)
+CMD ["celery", "-A", "services.celery_worker.celery_app", "worker", "--loglevel=info", "-P", "threads"]

@@ -2,10 +2,11 @@ from celery import Celery
 from kombu import Queue
 import time
 import logging
-import os 
+import os
 
 from .frame_extractor import FrameExtractor
 from .s3_utils import list_videos_in_folder
+from config import config  # Import the config object
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +41,7 @@ def process_single_s3_video_task(self, bucket_name, s3_key):
     """
     try:
         self.update_state(state='PROGRESS', meta={'status': f'Initializing for {os.path.basename(s3_key)}', 'progress': 0})
-        
+
         # Construct output path based on the input key
         s3_key_parts = s3_key.strip('/').split('/')
         base_folder = os.path.join(s3_key_parts[0], s3_key_parts[1])
@@ -61,8 +62,8 @@ def process_single_s3_video_task(self, bucket_name, s3_key):
             video_name_without_ext
         ).replace("\\", "/")
 
-        extractor = FrameExtractor()
-        
+        extractor = FrameExtractor(config)  # Pass the config object here
+
         # Pass 'self' (the task instance) to the processing function
         result = extractor.extract_frames_from_video_s3(
             s3_key=s3_key,
@@ -72,8 +73,8 @@ def process_single_s3_video_task(self, bucket_name, s3_key):
         )
 
         if not result.get('success'):
-             raise RuntimeError(result.get('error', 'Frame extraction failed.'))
-        
+            raise RuntimeError(result.get('error', 'Frame extraction failed.'))
+
         final_result = {
             'status': 'Completed',
             'progress': 100,
@@ -96,9 +97,9 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
     """
     try:
         self.update_state(state='PROGRESS', meta={'status': 'Initializing...', 'progress': 0, 'result': []})
-        
+
         prefix_parts = s3_prefix.strip('/').split('/')
-        
+
         if len(prefix_parts) < 7:
             raise ValueError(f"S3 prefix '{s3_prefix}' is not in the expected format.")
 
@@ -107,7 +108,7 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
         client_name_folder = prefix_parts[3]
         camera_angle_folder = prefix_parts[5]
         video_type_folder = prefix_parts[6]
-        
+
         base_output_path = os.path.join(
             base_folder,
             date_folder,
@@ -117,14 +118,14 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
             video_type_folder
         )
 
-        extractor = FrameExtractor()
+        extractor = FrameExtractor(config)  # Pass the config object here
         success, folder_list = list_videos_in_folder(bucket_name, s3_prefix)
 
         if not success:
             error_message = folder_list or "Failed to list videos from S3."
             self.update_state(state='FAILURE', meta={'status': error_message})
             return {'status': 'Failed', 'error': error_message}
-        
+
         if not folder_list or not folder_list[0].get('videos'):
             error_message = "No videos found in the specified folder."
             self.update_state(state='FAILURE', meta={'status': error_message})
@@ -141,7 +142,7 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
         for video_filename in video_filenames:
             video_key = os.path.join(folder_prefix, video_filename).replace("\\", "/")
             logger.info(f"Processing video: {video_key}")
-            
+
             video_name_without_ext = os.path.splitext(video_filename)[0]
             output_prefix = os.path.join(base_output_path, video_name_without_ext)
 
@@ -153,10 +154,10 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
                 frame_interval=10,
                 task=self
             )
-            
+
             if result.get('success'):
                 all_extracted_frames.extend(result.get('frame_urls', []))
-            
+
             processed_videos += 1
             # Update overall progress after each video
             progress = int((processed_videos / total_videos) * 100)

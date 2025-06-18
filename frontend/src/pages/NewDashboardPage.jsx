@@ -1,14 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import Chart from 'chart.js/auto';
-import { getSystemStatus, getChartData } from '../api/apiService';
+// Import the new API function and toast for notifications
+import { getSystemStatus, getChartData, getComparisonDetails } from '../api/apiService';
+import { toast } from 'react-toastify';
 
-// --- Modal for Comparison Table Details ---
-const ComparisonDetailModal = ({ isOpen, onClose, data }) => {
+
+// --- Modal for Comparison Table Details (Upgraded for Live Data) ---
+const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) => {
     const [showWagonDetails, setShowWagonDetails] = useState(false);
 
-    if (!isOpen || !data) {
+    if (!isOpen) {
         return null;
     }
+
+    // This renders the new nested table for damage details
+    const renderDetailTable = (detailData) => (
+        <table className="table table-sm mb-0">
+            <thead><tr><th>Old</th><th>New</th><th>Resolved</th><th>Image</th></tr></thead>
+            <tbody>
+                {detailData && detailData.length > 0 ? detailData.map((detail, index) => (
+                    <tr key={index}>
+                        <td>{detail.old}</td>
+                        <td>{detail.new}</td>
+                        <td>{detail.resolved}</td>
+                        <td>
+                            {detail.image ? 
+                                <img src={detail.image} alt="damage" style={{width: '120px', borderRadius: '4px'}}/> : 
+                                <span className="text-muted">No Image</span>
+                            }
+                        </td>
+                    </tr>
+                )) : <tr><td colSpan="4" className="text-muted text-center">No details found.</td></tr>}
+            </tbody>
+        </table>
+    );
 
     return (
         <>
@@ -17,76 +42,54 @@ const ComparisonDetailModal = ({ isOpen, onClose, data }) => {
                 <div className="modal-dialog modal-xl modal-dialog-centered">
                     <div className="modal-content">
                         <div className="modal-header">
-                            <h5 className="modal-title">Comparison Details for {data.id}</h5>
+                            {/* Use the train ID from the summary 'data' prop for the title */}
+                            <h5 className="modal-title">Comparison Details for {data?.id}</h5>
                             <button type="button" className="btn-close" onClick={onClose}></button>
                         </div>
                         <div className="modal-body">
-                            {/* This is the "new table" as requested */}
+                            {/* Summary table uses the initial 'data' prop */}
                             <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Train ID</th>
-                                        <th>Wagons</th>
-                                        <th>Left View Damages</th>
-                                        <th>Right View Damages</th>
-                                        <th>Top View Damages</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Train ID</th><th>Wagons</th><th>Left View Damages</th><th>Right View Damages</th><th>Top View Damages</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     <tr>
-                                        <td>{data.id}</td>
-                                        <td>{data.wagons}</td>
-                                        <td>{data.left_damages}</td>
-                                        <td>{data.right_damages}</td>
-                                        <td>{data.top_damages}</td>
+                                        <td>{data?.id}</td><td>{data?.wagons}</td><td>{data?.left_damages}</td>
+                                        <td>{data?.right_damages}</td><td>{data?.top_damages}</td>
                                         <td>
-                                            <button className="action-btn primary" onClick={() => setShowWagonDetails(!showWagonDetails)}>
-                                                {showWagonDetails ? 'Hide' : 'View'} Details
+                                            <button className="action-btn primary" onClick={() => setShowWagonDetails(!showWagonDetails)} disabled={isLoading}>
+                                                {isLoading ? <span className="spinner-border spinner-border-sm"></span> : (showWagonDetails ? 'Hide Details' : 'View Details')}
                                             </button>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
 
-                            {/* This is the nested "Wagon View Table" */}
+                            {/* Conditional rendering for loading and the detailed view */}
                             {showWagonDetails && (
                                 <div className="mt-4">
                                     <h6 className="mb-3">Wagon Frame Details</h6>
-                                    <div className="table-responsive" style={{maxHeight: '40vh'}}>
-                                        <table className="table table-bordered table-hover">
-                                            <thead className="table-light">
-                                                <tr>
-                                                    <th rowSpan="2" className="align-middle text-center">Wagon #</th>
-                                                    <th colSpan="2" className="text-center">Left View</th>
-                                                    <th colSpan="2" className="text-center">Right View</th>
-                                                </tr>
-                                                <tr>
-                                                    <th className="text-center">Entry Frame</th>
-                                                    <th className="text-center">Exit Frame</th>
-                                                    <th className="text-center">Entry Frame</th>
-                                                    <th className="text-center">Exit Frame</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {data.wagon_details.map(wagon => (
-                                                    <tr key={wagon.wagon_id}>
-                                                        <td className="text-center">{wagon.wagon_id}</td>
-                                                        <td>{wagon.left_entry}</td>
-                                                        <td>{wagon.left_exit}</td>
-                                                        <td>{wagon.right_entry}</td>
-                                                        <td>{wagon.right_exit}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    {isLoading ? (
+                                        <div className="text-center py-5"><div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div></div>
+                                    ) : (
+                                        <div className="table-responsive" style={{maxHeight: '40vh'}}>
+                                            <table className="table table-bordered table-hover">
+                                                <thead className="table-light"><tr><th className="align-middle text-center">Wagon #</th><th className="text-center">Left View</th><th className="text-center">Right View</th></tr></thead>
+                                                <tbody>
+                                                    {details && details.length > 0 ? details.map(wagon => (
+                                                        <tr key={wagon.wagon_id}>
+                                                            <td className="text-center align-middle"><strong>{wagon.wagon_id}</strong></td>
+                                                            {/* Use the new render function for the nested tables */}
+                                                            <td>{renderDetailTable(wagon.left_view_details)}</td>
+                                                            <td>{renderDetailTable(wagon.right_view_details)}</td>
+                                                        </tr>
+                                                    )) : <tr><td colSpan="3" className="text-muted text-center">No wagon details available.</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
-                        <div className="modal-footer">
-                            <button type="button" className="action-btn outline" onClick={onClose}>Close</button>
-                        </div>
+                        <div className="modal-footer"><button type="button" className="action-btn outline" onClick={onClose}>Close</button></div>
                     </div>
                 </div>
             </div>
@@ -94,42 +97,59 @@ const ComparisonDetailModal = ({ isOpen, onClose, data }) => {
     );
 };
 
+
 // --- The Main Dashboard Page Component ---
 const NewDashboardPage = () => {
-    // State for the comparison table modal
-    const [isComparisonModalOpen, setComparisonModalOpen] = useState(false);
+    // State for the modal, now includes loading and fetched details
     const [selectedComparisonTrain, setSelectedComparisonTrain] = useState(null);
+    const [isComparisonModalOpen, setComparisonModalOpen] = useState(false);
+    const [comparisonDetails, setComparisonDetails] = useState(null);
+    const [isComparisonLoading, setIsComparisonLoading] = useState(false);
     
     const [stats, setStats] = useState(null);
     const [chartsData, setChartsData] = useState(null);
-
-    // Mock data for the Comparison Table with nested details
+    
+    // The main table data now includes the s3_path to fetch details from
     const comparisonData = [
         { 
-            id: 'TR-COMP-001', date: '2025-06-18', wagons: 2, left_damages: 5, right_damages: 2, top_damages: 1,
-            wagon_details: [
-                { wagon_id: 1, left_entry: 'L1_entry.jpg', left_exit: 'L1_exit.jpg', right_entry: 'R1_entry.jpg', right_exit: 'R1_exit.jpg' },
-                { wagon_id: 2, left_entry: 'L2_entry.jpg', left_exit: 'L2_exit.jpg', right_entry: 'R2_entry.jpg', right_exit: 'R2_exit.jpg' }
-            ]
+            id: 'TR-COMP-001', date: '2025-06-17', wagons: 2, left_damages: 5, right_damages: 2, top_damages: 1,
+            s3_path: '2024_Oct_CR_WagonDamageDetection/Wagon_H/17-06-2025/admin1/Comparision_Results'
         },
-        { 
-            id: 'TR-COMP-002', date: '2025-06-17', wagons: 3, left_damages: 0, right_damages: 8, top_damages: 4,
-            wagon_details: [
-                { wagon_id: 1, left_entry: 'L1_entry.jpg', left_exit: 'L1_exit.jpg', right_entry: 'R1_entry.jpg', right_exit: 'R1_exit.jpg' },
-                { wagon_id: 2, left_entry: 'L2_entry.jpg', left_exit: 'L2_exit.jpg', right_entry: 'R2_entry.jpg', right_exit: 'R2_exit.jpg' },
-                { wagon_id: 3, left_entry: 'L3_entry.jpg', left_exit: 'L3_exit.jpg', right_entry: 'R3_entry.jpg', right_exit: 'R3_exit.jpg' }
-            ]
-        },
+        // Add more rows here as needed, each with its own s3_path
     ];
     
-    // Handler to open the comparison detail modal
-    const handleOpenComparisonModal = (trainData) => {
+    // This handler now opens the modal and fetches the live data
+    const handleOpenComparisonModal = async (trainData) => {
+        // Set initial state to show the modal with loading indicators
         setSelectedComparisonTrain(trainData);
         setComparisonModalOpen(true);
+        setIsComparisonLoading(true);
+        setComparisonDetails(null); // Clear previous details
+
+        try {
+            const response = await getComparisonDetails(trainData.s3_path);
+            if(response.success){
+                setComparisonDetails(response.details);
+            } else {
+                toast.error("Failed to fetch comparison details.");
+            }
+        } catch (error) {
+            console.error("Error fetching comparison details:", error);
+            toast.error("An error occurred while fetching details.");
+        } finally {
+            // Stop loading indicator regardless of outcome
+            setIsComparisonLoading(false);
+        }
     };
     
+    // This handler now resets all relevant states on close
+    const handleCloseComparisonModal = () => {
+        setComparisonModalOpen(false);
+        setSelectedComparisonTrain(null);
+        setComparisonDetails(null);
+    };
+
     useEffect(() => {
-        // Chart and data fetching logic remains unchanged
         const chartInstances = [];
         const fetchDataAndCreateCharts = async () => {
             try {
@@ -155,7 +175,7 @@ const NewDashboardPage = () => {
             if (chartsData.damage_types) createChart(severityCtx, { type: 'bar', data: { labels: chartsData.damage_types.labels, datasets: [{ label: 'Damage Count', data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
         }
         return () => chartInstances.forEach(chart => chart.destroy());
-    }, [chartsData]); 
+    }, [chartsData]);
 
     return (
         <>
@@ -166,8 +186,8 @@ const NewDashboardPage = () => {
                     <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Processed Videos</span><div className="kpi-icon success"><i className="fas fa-video"></i></div></div><div className="kpi-value">{stats?.total_videos ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>{stats?.storage_usage}</span></div></div>
                     <div className="kpi-card warning"><div className="kpi-header"><span className="kpi-title">Damage Detected</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{stats?.total_detections ?? '...'}</div><div className="kpi-change neutral"><span>Frames</span></div></div>
                     <div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Processing Rate</span><div className="kpi-icon primary"><i className="fas fa-tachometer-alt"></i></div></div><div className="kpi-value">{stats?.processing_speed ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>Efficiency</span></div></div>
-                    <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Inspections Complete</span><div className="kpi-icon success"><i className="fas fa-check-circle"></i></div></div><div className="kpi-value">1,158</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>92.9%</span></div></div>
-                    <div className="kpi-card danger"><div className="kpi-header"><span className="kpi-title">Critical Issues</span><div className="kpi-icon danger"><i className="fas fa-times-circle"></i></div></div><div className="kpi-value">12</div><div className="kpi-change neutral"><span>Immediate</span></div></div>
+                    <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Inspections Complete</span><div className="kpi-icon success"><i className="fas fa-check-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i>&nbsp;</div></div>
+                    <div className="kpi-card danger"><div className="kpi-header"><span className="kpi-title">Critical Issues</span><div className="kpi-icon danger"><i className="fas fa-times-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change neutral">&nbsp;</div></div>
                 </div>
 
                 {/* --- CHARTS --- */}
@@ -176,8 +196,6 @@ const NewDashboardPage = () => {
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Types Distribution</h3></div><div className="chart-container"><canvas id="damageTypesChart"></canvas></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Severity Trends</h3></div><div className="chart-container"><canvas id="severityTrendsChart"></canvas></div></div>
                 </div>
-
-                {/* --- The Train Inspection Results table has been removed as requested --- */}
 
                 {/* --- COMPARISON TABLE --- */}
                 <div className="data-section mt-4">
@@ -213,8 +231,14 @@ const NewDashboardPage = () => {
                 </div>
             </div>
 
-            {/* Render the comparison details modal */}
-            <ComparisonDetailModal isOpen={isComparisonModalOpen} onClose={() => setComparisonModalOpen(false)} data={selectedComparisonTrain} />
+            {/* Render the comparison details modal with new props */}
+            <ComparisonDetailModal 
+                isOpen={isComparisonModalOpen} 
+                onClose={handleCloseComparisonModal} 
+                data={selectedComparisonTrain}
+                details={comparisonDetails}
+                isLoading={isComparisonLoading}
+            />
         </>
     );
 };

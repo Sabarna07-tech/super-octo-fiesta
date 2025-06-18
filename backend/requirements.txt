@@ -1,6 +1,7 @@
 # Flask and Web Server
 Flask==2.3.3
 Werkzeug==2.3.7
+gunicorn==22.0.0
 python-dotenv==1.0.0
 Flask-WTF==1.1.1
 Flask-Cors==4.0.0
@@ -11,8 +12,9 @@ pandas==2.1.1
 numpy==1.26.4
 ultralytics==8.3.0
 opencv-python-headless==4.9.0.80
-torch==2.3.0
-torchvision==0.18.0
+# EDITED: Downgraded torch and torchvision to be compatible with Python 3.10
+torch==2.2.0
+torchvision==0.17.0
 Pillow==10.0.1
 
 # S3 and Async Tasks
@@ -24,11 +26,8 @@ eventlet==0.40.0
 # Reporting
 reportlab==4.0.4
 
-# YAML Parsing
+# Added for DeepSort tracking and YAML
 PyYAML==6.0.1
-
-
-
-# Other dependencies
+deepsort-realtime
 lapx==0.5.6
 setuptools>=65.0.0
