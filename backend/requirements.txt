@@ -2,9 +2,9 @@
 Flask==2.3.3
 Werkzeug==2.3.7
 python-dotenv==1.0.0
-Flask-WTF==1.1.1 # Can be removed if not using Flask-Forms
-Flask-Cors==4.0.0 # Added for API
-PyJWT==2.8.0 # Added for token authentication
+Flask-WTF==1.1.1
+Flask-Cors==4.0.0
+PyJWT==2.8.0
 
 # Data and ML
 pandas==2.1.1
@@ -19,7 +19,16 @@ Pillow==10.0.1
 boto3==1.28.63
 celery==5.4.0
 redis==5.0.4
-eventlet==0.40.0 # FIX: Added for stable Celery execution
+eventlet==0.40.0
 
-# Reporting (if still needed on backend)
+# Reporting
 reportlab==4.0.4
+
+# YAML Parsing
+PyYAML==6.0.1
+
+
+
+# Other dependencies
+lapx==0.5.6
+setuptools>=65.0.0

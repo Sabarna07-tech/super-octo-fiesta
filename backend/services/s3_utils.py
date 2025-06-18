@@ -50,8 +50,8 @@ def get_s3_usage_stats(bucket_name, prefix=''):
                     if '/raw-videos/' in key_lower and key_lower.endswith(video_extensions):
                         total_videos += 1
                         total_size_bytes += obj['Size']
-                    # Count extracted frames (detections)
-                    elif '/extracted_frames/' in key_lower and key_lower.endswith('.jpg'):
+                    # FIX: Corrected path to '/processed frames/' to match celery_worker.py
+                    elif '/processed frames/' in key_lower and key_lower.endswith('.jpg'):
                         total_detections += 1
     except ClientError as e:
         logger.error(f"Error scanning S3 bucket for stats: {e}")

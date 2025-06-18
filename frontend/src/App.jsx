@@ -1,12 +1,14 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
-import BaseLayout from './components/BaseLayout.jsx';
+// Import Pages
 import LoginPage from './pages/LoginPage.jsx';
 import S3DashboardPage from './pages/S3DashboardPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
+import NewDashboardPage from './pages/NewDashboardPage.jsx';
 import UploadPage from './pages/UploadPage.jsx';
-import DamageDetectionPage from './pages/DamageDetectionPage.jsx';
+
+// Import the single, new layout
+import NewBaseLayout from './components/NewBaseLayout.jsx';
 
 const ProtectedRoute = ({ children }) => {
     const token = localStorage.getItem('token');
@@ -18,42 +20,33 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-const RoleProtectedRoute = ({ children, allowedRole }) => {
-    const userRole = localStorage.getItem('role');
-    if (userRole !== allowedRole) {
-        return <Navigate to="/dashboard" replace />;
-    }
-    return children;
-}
-
-const RoleBasedHomePage = () => {
+// This component determines the user's home page after login
+const RoleBasedRedirect = () => {
     const userRole = localStorage.getItem('role');
     if (userRole === 's3_uploader') {
         return <Navigate to="/s3_dashboard" replace />;
     }
-    // For admin, viewer, and any other role, redirect to the main dashboard.
-    return <Navigate to="/dashboard" replace />;
+    // Admin, viewer, and other roles default to the new dashboard
+    return <Navigate to="/new-dashboard" replace />;
 };
-
 
 function App() {
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
 
-            <Route path="/" element={<ProtectedRoute><BaseLayout /></ProtectedRoute>}>
-                <Route index element={<RoleBasedHomePage />} />
+            {/* All protected routes now use the NewBaseLayout */}
+            <Route path="/" element={<ProtectedRoute><NewBaseLayout /></ProtectedRoute>}>
+                {/* The index route redirects based on role */}
+                <Route index element={<RoleBasedRedirect />} />
                 
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="frame_extraction" element={<UploadPage />} />
-                <Route path="damage_detection" element={<DamageDetectionPage />} />
-                
-                <Route 
-                    path="s3_dashboard" 
-                    element={<RoleProtectedRoute allowedRole="s3_uploader"><S3DashboardPage /></RoleProtectedRoute>} 
-                />
+                {/* Define routes for each role */}
+                <Route path="new-dashboard" element={<NewDashboardPage />} />
+                <Route path="upload" element={<UploadPage />} />
+                <Route path="s3_dashboard" element={<S3DashboardPage />} />
             </Route>
 
+            {/* Fallback route to redirect any unknown paths */}
             <Route path="*" element={<Navigate to="/" />} />
         </Routes>
     );
