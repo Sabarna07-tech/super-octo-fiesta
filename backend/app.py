@@ -3,10 +3,15 @@ from flask_cors import CORS
 from api.routes import api_bp
 from config import Config
 import os
+from dotenv import load_dotenv
+import logging
+
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    logging.basicConfig(level=logging.INFO)
     
     # Enable CORS for all routes
     CORS(app)

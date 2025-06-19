@@ -34,7 +34,7 @@ const Sidebar = ({ isCollapsed, onLogoutClick }) => {
                                 <NavLink to="/new-dashboard" className="nav-link" end><i className="nav-icon fas fa-chart-line"></i><span className="nav-text">Dashboard</span></NavLink>
                             </div>
                             <div className="nav-item">
-                                <NavLink to="/upload" className="nav-link"><i className="nav-icon fas fa-cogs"></i><span className="nav-text">Retrieve & Process</span></NavLink>
+                                <NavLink to="/comparison" className="nav-link"><i className="nav-icon fas fa-cogs"></i><span className="nav-text">Damage Comparison</span></NavLink>
                             </div>
                         </>
                     )}

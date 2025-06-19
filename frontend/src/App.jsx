@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage.jsx';
 import S3DashboardPage from './pages/S3DashboardPage.jsx';
 import NewDashboardPage from './pages/NewDashboardPage.jsx';
 import UploadPage from './pages/UploadPage.jsx';
+import DamageCamparison from './pages/DamageCamparison.jsx';
 
 // Import the single, new layout
 import NewBaseLayout from './components/NewBaseLayout.jsx';
@@ -42,7 +43,7 @@ function App() {
                 
                 {/* Define routes for each role */}
                 <Route path="new-dashboard" element={<NewDashboardPage />} />
-                <Route path="upload" element={<UploadPage />} />
+                <Route path="comparison" element={<DamageCamparison />} />
                 <Route path="s3_dashboard" element={<S3DashboardPage />} />
             </Route>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Chart from 'chart.js/auto';
 // Import the new API function and toast for notifications
-import { getSystemStatus, getChartData, getComparisonDetails, getDamageCounts } from '../api/apiService';
+import { getChartData, getComparisonDetails, getDamageCounts } from '../api/apiService';
 import { toast } from 'react-toastify';
 
 
@@ -123,22 +123,59 @@ const NewDashboardPage = () => {
     const [comparisonDetails, setComparisonDetails] = useState(null);
     const [isComparisonLoading, setIsComparisonLoading] = useState(false);
     
-    const [stats, setStats] = useState(null);
-    const [chartsData, setChartsData] = useState(null);
-    
-    // **EDIT**: The comparison table data is now managed by state
+    // The comparison table data is now managed by state
     const [comparisonData, setComparisonData] = useState([
         { 
             id: 'TR-COMP-001', 
             date: '2025-06-17', 
             wagons: 2, 
-            left_damages: 'Loading...', // Default loading state
+            left_damages: 'Loading...', 
             right_damages: 'Loading...', 
             top_damages: 'Loading...',
             s3_path: '2024_Oct_CR_WagonDamageDetection/Wagon_H/17-06-2025/admin1/Comparision_Results'
         },
         // You can add more initial train data here
     ]);
+
+    // **EDIT**: The stats are initialized here. Total trains is set directly.
+    const [stats, setStats] = useState({
+        total_trains: comparisonData.length, // Set initial count immediately
+        processed_videos: 0, 
+        storage_usage: '...', 
+        total_detections: 0
+    });
+
+    const [chartsData, setChartsData] = useState(null);
+    
+    // **EDIT**: This new useEffect is dedicated to calculating stats after data loads.
+    useEffect(() => {
+        // Only calculate stats if the data is fully loaded (i.e., no more "Loading..." strings).
+        const isDataLoaded = !comparisonData.some(train => typeof train.left_damages === 'string');
+        if (isDataLoaded) {
+            const totalDetections = comparisonData.reduce((acc, train) => acc + train.left_damages + train.right_damages + train.top_damages, 0);
+
+            const processedVideos = comparisonData.reduce((acc, train) => {
+                const hasLeft = train.left_damages > 0;
+                const hasRight = train.right_damages > 0;
+                const hasTop = train.top_damages > 0;
+                
+                if (hasLeft && hasRight && hasTop) {
+                    return acc + 8;
+                } else if (hasLeft && hasRight) {
+                    return acc + 4;
+                } else if ((hasLeft && !hasRight && !hasTop) || (!hasLeft && hasRight && !hasTop) || (!hasLeft && !hasRight && hasTop)) {
+                    return acc + 2;
+                }
+                return acc;
+            }, 0);
+
+            setStats(prevStats => ({
+                ...prevStats,
+                total_detections: totalDetections,
+                processed_videos: processedVideos,
+            }));
+        }
+    }, [comparisonData]);
     
     // This handler now opens the modal and fetches the live data
     const handleOpenComparisonModal = async (trainData) => {
@@ -171,30 +208,29 @@ const NewDashboardPage = () => {
         setComparisonDetails(null);
     };
 
+    // **EDIT**: This useEffect now only fetches data and creates charts.
     useEffect(() => {
         const chartInstances = [];
         const fetchDataAndCreateCharts = async () => {
             try {
-                // Fetch system status and chart data
-                const statusRes = await getSystemStatus();
-                if (statusRes.error) console.error("Error fetching system status:", statusRes.error); else setStats(statusRes);
                 const chartRes = await getChartData();
                 if (chartRes.error) console.error("Error fetching chart data:", chartRes.error); else setChartsData(chartRes);
 
-                // **EDIT**: Fetch damage counts for each train in the comparison table
-                // Use Promise.all to fetch all counts in parallel
+                // Fetch damage counts for each train in the comparison table
                 const updatedData = await Promise.all(comparisonData.map(async (train) => {
+                    // Skip if data is already loaded (avoids re-fetching)
+                    if(typeof train.left_damages !== 'string') return train;
+
                     const countsRes = await getDamageCounts(train.s3_path);
                     if (countsRes.success) {
                         return {
                             ...train,
-                            left_damages: countsRes.counts.left_view_damages,
-                            right_damages: countsRes.counts.right_view_damages,
-                            top_damages: countsRes.counts.top_view_damages,
+                            left_damages: parseInt(countsRes.counts.left_view_damages, 10) || 0,
+                            right_damages: parseInt(countsRes.counts.right_view_damages, 10) || 0,
+                            top_damages: parseInt(countsRes.counts.top_view_damages, 10) || 0,
                         };
                     }
-                    // Return original train data with error message on failure
-                    return { ...train, left_damages: 'Error', right_damages: 'Error', top_damages: 'Error' };
+                    return { ...train, left_damages: 0, right_damages: 0, top_damages: 0 };
                 }));
                 setComparisonData(updatedData);
 
@@ -205,7 +241,7 @@ const NewDashboardPage = () => {
 
         fetchDataAndCreateCharts();
 
-        // Chart creation logic (no changes needed here)
+        // Chart creation logic
         if (chartsData) {
             const createChart = (ctx, config) => {
                 if (ctx) {
@@ -221,27 +257,24 @@ const NewDashboardPage = () => {
             if (chartsData.damage_types) createChart(severityCtx, { type: 'bar', data: { labels: chartsData.damage_types.labels, datasets: [{ label: 'Damage Count', data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
         }
         return () => chartInstances.forEach(chart => chart.destroy());
-    }, [chartsData]); // This effect still depends on chartsData to redraw charts
+    }, [chartsData]); 
 
     return (
         <>
             <div className="fade-in">
                 {/* --- KPI CARDS --- */}
                 <div className="dashboard-grid">
-                    <div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Total Trains</span><div className="kpi-icon primary"><i className="fas fa-train"></i></div></div><div className="kpi-value">{stats?.total_videos ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>All time</span></div></div>
-                    <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Processed Videos</span><div className="kpi-icon success"><i className="fas fa-video"></i></div></div><div className="kpi-value">{stats?.total_videos ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>{stats?.storage_usage}</span></div></div>
-                    <div className="kpi-card warning"><div className="kpi-header"><span className="kpi-title">Damage Detected</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{stats?.total_detections ?? '...'}</div><div className="kpi-change neutral"><span>Frames</span></div></div>
-                    <div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Processing Rate</span><div className="kpi-icon primary"><i className="fas fa-tachometer-alt"></i></div></div><div className="kpi-value">{stats?.processing_speed ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>Efficiency</span></div></div>
-                    <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Inspections Complete</span><div className="kpi-icon success"><i className="fas fa-check-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i>&nbsp;</div></div>
-                    <div className="kpi-card danger"><div className="kpi-header"><span className="kpi-title">Critical Issues</span><div className="kpi-icon danger"><i className="fas fa-times-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change neutral">&nbsp;</div></div>
+                    <div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Total Trains</span><div className="kpi-icon primary"><i className="fas fa-train"></i></div></div><div className="kpi-value">{stats.total_trains}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>All time</span></div></div>
+                    <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Processed Videos</span><div className="kpi-icon success"><i className="fas fa-video"></i></div></div><div className="kpi-value">{stats.processed_videos}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>{stats.storage_usage}</span></div></div>
+                    <div className="kpi-card warning"><div className="kpi-header"><span className="kpi-title">Damage Detected</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{stats.total_detections}</div><div className="kpi-change neutral"><span>Frames</span></div></div>
                 </div>
 
                 {/* --- CHARTS --- */}
-                <div className="charts-section">
+                {/* <div className="charts-section">
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Weekly Trains Processed</h3></div><div className="chart-container"><canvas id="weeklyTrainsChart"></canvas></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Types Distribution</h3></div><div className="chart-container"><canvas id="damageTypesChart"></canvas></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Severity Trends</h3></div><div className="chart-container"><canvas id="severityTrendsChart"></canvas></div></div>
-                </div>
+                </div> */}
 
                 {/* --- COMPARISON TABLE --- */}
                 <div className="data-section mt-4">

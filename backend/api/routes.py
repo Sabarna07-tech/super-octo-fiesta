@@ -4,6 +4,8 @@ import jwt
 import datetime
 from functools import wraps
 import os
+import logging
+
 
 from services.celery_worker import process_s3_videos_task, process_single_s3_video_task
 from celery.result import AsyncResult
@@ -12,6 +14,9 @@ from services.s3_utils import (
     upload_file_to_s3, list_videos_in_folder, check_file_exists, 
     get_s3_usage_stats, generate_presigned_url, get_comparison_details_from_s3
 )
+from services.compare import run_comparison
+
+
 
 # Mock User Data & Roles
 USERS = { "admin": "123", "user": "123", "admin1": "Uploader@123", "viewer": "123" }
@@ -316,3 +321,37 @@ def get_damage_counts(current_user, s3_path):
     except Exception as e:
         current_app.logger.error(f"Error getting damage counts for {s3_path}: {e}")
         return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
+        
+        
+      
+@api_bp.route('/run-comparison', methods=['POST'])
+def run_comparison_route():
+    data = request.get_json()
+    # logging.info("Received POST /run-comparison")
+    # Extract and validate required fields
+    date = data.get('date')
+    name = data.get('name')
+    view = data.get('view')
+
+    if not all([date, name, view]):
+        return jsonify({'error': 'Missing one or more required parameters: date, name, view'}), 400
+       
+    try:
+        date_obj = datetime.datetime.strptime(date, '%Y-%m-%d')
+        date = date_obj.strftime('%d-%m-%Y')
+    except ValueError:
+        # logging.info(f"Error in date formatting : {date}")
+        return jsonify({'error': 'Invalid date format'}), 400
+
+    # Construct the S3 path
+    relative_path = os.getenv("S3_BASE_DIR")+f"/{date}/{name}/Processed_Frames/{view}"
+    # logging.info(f"{relative_path}")
+    bucket_name = os.getenv("S3_BUCKET_NAME")
+    # logging.info(f"{bucket_name}")
+
+    try:
+        _,msg = run_comparison(bucket_name, relative_path)
+        return jsonify({'message': msg}), 200
+    except Exception as e:
+        logging.info(f"ERROR : \n{str(e)}")
+        return jsonify({'error': str(e)}), 500
