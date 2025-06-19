@@ -7,6 +7,8 @@ import logging
 from botocore.exceptions import ClientError
 from werkzeug.utils import secure_filename
 from collections import defaultdict
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,93 @@ def get_s3_client():
     except Exception as e:
         logger.error(f"Error initializing S3 client: {str(e)}")
         return None
+
+def get_comparison_details_from_s3(bucket_name, prefix):
+    """
+    Scans a given S3 prefix for wagon comparison data.
+    This version is adapted for a two-level structure: {view}/{filename}.
+    """
+    s3_client = get_s3_client()
+    if not s3_client:
+        return None
+
+    logger.info(f"Scanning S3 prefix: s3://{bucket_name}/{prefix}")
+    paginator = s3_client.get_paginator('list_objects_v2')
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+
+    json_contents = {}
+    image_keys = {}
+
+    for page in pages:
+        if 'Contents' not in page:
+            continue
+        for obj in page['Contents']:
+            key = obj['Key']
+            if key.endswith('/'):
+                continue
+
+            relative_path = key.replace(prefix, '').lstrip('/')
+            path_parts = relative_path.split('/')
+            
+            # FIX: Now expects 2 parts: [view, filename]
+            if len(path_parts) != 2:
+                logger.warning(f"Skipping unexpected S3 object structure: {key}")
+                continue
+
+            view, filename = path_parts
+            frame_id = os.path.splitext(filename)[0]
+
+            if filename.endswith('.json'):
+                try:
+                    json_obj = s3_client.get_object(Bucket=bucket_name, Key=key)
+                    content = json_obj['Body'].read().decode('utf-8')
+                    json_contents[(view, frame_id)] = json.loads(content)
+                except Exception as e:
+                    logger.error(f"Failed to read or parse JSON file {key}: {e}")
+            elif filename.endswith(('.png', '.jpg', '.jpeg')):
+                image_keys[(view, frame_id)] = key
+    
+    left_view_details = []
+    right_view_details = []
+
+    for (view, frame_id), json_data in json_contents.items():
+        image_key = image_keys.get((view, frame_id))
+        presigned_url = generate_presigned_url(bucket_name, image_key, 3600) if image_key else None
+
+        def format_damage_count(data_list):
+            if not data_list:
+                return "-"
+            count = len(data_list)
+            label = data_list[0].get('label', 'item')
+            return f"{count} {label}{'s' if count > 1 else ''}"
+
+        details = {
+            'frame_id': frame_id,
+            'old': format_damage_count(json_data.get('OLD', [])),
+            'new': format_damage_count(json_data.get('NEW', [])),
+            'resolved': format_damage_count(json_data.get('RESOLVED', [])),
+            'image': presigned_url
+        }
+        
+        if view.lower() == 'left':
+            left_view_details.append(details)
+        elif view.lower() == 'right':
+            right_view_details.append(details)
+            
+    if not left_view_details and not right_view_details:
+        logger.warning("Found no processable frame data in the specified path.")
+        return []
+
+    # Create a single "wagon" object to hold all the frames, which matches the frontend's expectation.
+    response_data = [{
+        'wagon_id': 'Detected Frames',
+        'left_view_details': left_view_details,
+        'right_view_details': right_view_details
+    }]
+    
+    logger.info(f"Successfully processed {len(left_view_details)} left frames and {len(right_view_details)} right frames.")
+    return response_data
+
 
 def get_s3_usage_stats(bucket_name, prefix=''):
     """
@@ -51,7 +140,7 @@ def get_s3_usage_stats(bucket_name, prefix=''):
                         total_videos += 1
                         total_size_bytes += obj['Size']
                     # Count extracted frames (detections)
-                    elif '/extracted_frames/' in key_lower and key_lower.endswith('.jpg'):
+                    elif '/processed frames/' in key_lower and key_lower.endswith(('.jpg', '.jpeg', '.png')):
                         total_detections += 1
     except ClientError as e:
         logger.error(f"Error scanning S3 bucket for stats: {e}")
@@ -216,3 +305,46 @@ def check_file_exists(bucket_name, s3_key):
     except Exception as e:
         logger.error(f"A general error occurred: {e}")
         return False
+    # In backend/services/s3_utils.py
+
+import json
+# ... other imports
+
+def get_damage_counts_from_s3(bucket_name, base_prefix):
+    """
+    Calculates the number of new and resolved damages for each view (left, right, top)
+    by scanning JSON files in the specified S3 path.
+    """
+    s3_client = get_s3_client()
+    if not s3_client:
+        logger.error("S3 client not available for damage count.")
+        return None
+
+    report = {'left_view_damages': 0, 'right_view_damages': 0, 'top_view_damages': 0}
+    # Mapping from folder name to the key in the report dictionary
+    view_folders = {'left': 'left_view_damages', 'right': 'right_view_damages', 'top': 'top_view_damages'}
+
+    for folder, view_key in view_folders.items():
+        prefix = f"{base_prefix}/{folder}/"
+        
+        try:
+            paginator = s3_client.get_paginator('list_objects_v2')
+            page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+
+            for page in page_iterator:
+                for obj in page.get('Contents', []):
+                    key = obj['Key']
+                    if key.endswith('.json'):
+                        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+                        content = response['Body'].read().decode('utf-8')
+                        try:
+                            data = json.loads(content)
+                            # Count items in NEW and RESOLVED arrays
+                            count = len(data.get('NEW', [])) + len(data.get('RESOLVED', []))
+                            report[view_key] += count
+                        except json.JSONDecodeError:
+                            logger.warning(f"Skipping invalid JSON file: {key}")
+        except Exception as e:
+            logger.error(f"Error accessing S3 folder {prefix}: {e}")
+
+    return report

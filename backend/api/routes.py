@@ -8,7 +8,10 @@ import os
 from services.celery_worker import process_s3_videos_task, process_single_s3_video_task
 from celery.result import AsyncResult
 # Import the new S3 stats utility
-from services.s3_utils import upload_file_to_s3, list_videos_in_folder, check_file_exists, get_s3_usage_stats, generate_presigned_url
+from services.s3_utils import (
+    upload_file_to_s3, list_videos_in_folder, check_file_exists, 
+    get_s3_usage_stats, generate_presigned_url, get_comparison_details_from_s3
+)
 
 # Mock User Data & Roles
 USERS = { "admin": "123", "user": "123", "admin1": "Uploader@123", "viewer": "123" }
@@ -263,3 +266,53 @@ def get_system_status(current_user):
 @token_required
 def get_chart_data(current_user):
     return jsonify({ "damage_by_date": {"labels": ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'], "data": [2, 3, 1, 5, 4]}, "damage_types": {"labels": ['Scratch', 'Dent', 'Crack', 'Rust'], "data": [5, 3, 2, 2]} })
+
+@api_bp.route('/comparison-details/<path:s3_path>', methods=['GET'])
+@token_required
+def comparison_details(current_user, s3_path):
+    """
+    Fetches structured comparison data from a specified S3 path.
+    """
+    if not s3_path:
+        return jsonify({'success': False, 'error': 'S3 path parameter is missing.'}), 400
+
+    try:
+        details = get_comparison_details_from_s3(
+            bucket_name=current_app.config['S3_BUCKET'],
+            prefix=s3_path
+        )
+        
+        if details is None:
+            return jsonify({'success': False, 'error': 'Failed to retrieve details from S3. The path may be incorrect or the service unavailable.'}), 500
+
+        return jsonify({'success': True, 'details': details})
+
+    except Exception as e:
+        current_app.logger.error(f"Error processing comparison details for path '{s3_path}': {e}", exc_info=True)
+        return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
+    # In backend/api/routes.py
+# Make sure to import the new function
+from services.s3_utils import get_damage_counts_from_s3
+
+@api_bp.route('/damage-counts/<path:s3_path>', methods=['GET'])
+@token_required
+def get_damage_counts(current_user, s3_path):
+    """
+    API endpoint to get the counts of damages from a specific S3 path.
+    """
+    if not s3_path:
+        return jsonify({'success': False, 'error': 'S3 path is required.'}), 400
+
+    try:
+        counts = get_damage_counts_from_s3(
+            bucket_name=current_app.config['S3_BUCKET'],
+            base_prefix=s3_path
+        )
+        if counts is None:
+            return jsonify({'success': False, 'error': 'Failed to retrieve damage counts.'}), 500
+            
+        return jsonify({'success': True, 'counts': counts})
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting damage counts for {s3_path}: {e}")
+        return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500

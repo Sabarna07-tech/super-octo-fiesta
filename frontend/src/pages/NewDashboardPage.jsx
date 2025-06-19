@@ -1,39 +1,60 @@
 import React, { useEffect, useState } from 'react';
 import Chart from 'chart.js/auto';
 // Import the new API function and toast for notifications
-import { getSystemStatus, getChartData, getComparisonDetails } from '../api/apiService';
+import { getSystemStatus, getChartData, getComparisonDetails, getDamageCounts } from '../api/apiService';
 import { toast } from 'react-toastify';
 
 
-// --- Modal for Comparison Table Details (Upgraded for Live Data) ---
-const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) => {
-    const [showWagonDetails, setShowWagonDetails] = useState(false);
-
-    if (!isOpen) {
-        return null;
-    }
-
-    // This renders the new nested table for damage details
-    const renderDetailTable = (detailData) => (
-        <table className="table table-sm mb-0">
-            <thead><tr><th>Old</th><th>New</th><th>Resolved</th><th>Image</th></tr></thead>
-            <tbody>
-                {detailData && detailData.length > 0 ? detailData.map((detail, index) => (
+// --- Sub-component to render the detailed damage table ---
+const renderDetailTable = (detailData) => (
+    <table className="table table-sm table-borderless" style={{'--bs-table-bg': 'transparent'}}>
+        <thead className="table-light">
+            <tr>
+                <th>Old</th>
+                <th>New</th>
+                <th>Resolved</th>
+                <th>Image</th>
+            </tr>
+        </thead>
+        <tbody>
+            {detailData && detailData.length > 0 ? (
+                detailData.map((detail, index) => (
                     <tr key={index}>
                         <td>{detail.old}</td>
                         <td>{detail.new}</td>
                         <td>{detail.resolved}</td>
                         <td>
-                            {detail.image ? 
-                                <img src={detail.image} alt="damage" style={{width: '120px', borderRadius: '4px'}}/> : 
+                            {detail.image ? (
+                                <a href={detail.image} target="_blank" rel="noopener noreferrer">
+                                    <img src={detail.image} alt="damage" style={{ width: '150px', borderRadius: '4px', cursor: 'pointer' }} />
+                                </a>
+                            ) : (
                                 <span className="text-muted">No Image</span>
-                            }
+                            )}
                         </td>
                     </tr>
-                )) : <tr><td colSpan="4" className="text-muted text-center">No details found.</td></tr>}
-            </tbody>
-        </table>
-    );
+                ))
+            ) : (
+                <tr>
+                    <td colSpan="4" className="text-muted text-center py-3">No details found.</td>
+                </tr>
+            )}
+        </tbody>
+    </table>
+);
+
+// --- Modal for Comparison Table Details (Upgraded for Live Data) ---
+const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) => {
+    const [showWagonDetails, setShowWagonDetails] = useState(false);
+
+    useEffect(() => {
+        // Reset the details view when a new train is selected
+        setShowWagonDetails(false);
+    }, [data]);
+
+    if (!isOpen) {
+        return null;
+    }
 
     return (
         <>
@@ -42,13 +63,11 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
                 <div className="modal-dialog modal-xl modal-dialog-centered">
                     <div className="modal-content">
                         <div className="modal-header">
-                            {/* Use the train ID from the summary 'data' prop for the title */}
                             <h5 className="modal-title">Comparison Details for {data?.id}</h5>
                             <button type="button" className="btn-close" onClick={onClose}></button>
                         </div>
                         <div className="modal-body">
-                            {/* Summary table uses the initial 'data' prop */}
-                            <table className="table">
+                            <table className="table mb-4">
                                 <thead><tr><th>Train ID</th><th>Wagons</th><th>Left View Damages</th><th>Right View Damages</th><th>Top View Damages</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     <tr>
@@ -63,25 +82,23 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
                                 </tbody>
                             </table>
 
-                            {/* Conditional rendering for loading and the detailed view */}
                             {showWagonDetails && (
                                 <div className="mt-4">
                                     <h6 className="mb-3">Wagon Frame Details</h6>
                                     {isLoading ? (
                                         <div className="text-center py-5"><div className="spinner-border text-primary" role="status"><span className="visually-hidden">Loading...</span></div></div>
                                     ) : (
-                                        <div className="table-responsive" style={{maxHeight: '40vh'}}>
+                                        <div className="table-responsive" style={{maxHeight: '50vh'}}>
                                             <table className="table table-bordered table-hover">
-                                                <thead className="table-light"><tr><th className="align-middle text-center">Wagon #</th><th className="text-center">Left View</th><th className="text-center">Right View</th></tr></thead>
+                                                <thead className="table-light"><tr><th className="align-middle text-center" style={{width: '100px'}}>Wagon #</th><th className="text-center">Left View</th><th className="text-center">Right View</th></tr></thead>
                                                 <tbody>
                                                     {details && details.length > 0 ? details.map(wagon => (
                                                         <tr key={wagon.wagon_id}>
                                                             <td className="text-center align-middle"><strong>{wagon.wagon_id}</strong></td>
-                                                            {/* Use the new render function for the nested tables */}
-                                                            <td>{renderDetailTable(wagon.left_view_details)}</td>
-                                                            <td>{renderDetailTable(wagon.right_view_details)}</td>
+                                                            <td className="p-0">{renderDetailTable(wagon.left_view_details)}</td>
+                                                            <td className="p-0">{renderDetailTable(wagon.right_view_details)}</td>
                                                         </tr>
-                                                    )) : <tr><td colSpan="3" className="text-muted text-center">No wagon details available.</td></tr>}
+                                                    )) : <tr><td colSpan="3" className="text-muted text-center py-4">No wagon details available.</td></tr>}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -109,14 +126,19 @@ const NewDashboardPage = () => {
     const [stats, setStats] = useState(null);
     const [chartsData, setChartsData] = useState(null);
     
-    // The main table data now includes the s3_path to fetch details from
-    const comparisonData = [
+    // **EDIT**: The comparison table data is now managed by state
+    const [comparisonData, setComparisonData] = useState([
         { 
-            id: 'TR-COMP-001', date: '2025-06-17', wagons: 2, left_damages: 5, right_damages: 2, top_damages: 1,
+            id: 'TR-COMP-001', 
+            date: '2025-06-17', 
+            wagons: 2, 
+            left_damages: 'Loading...', // Default loading state
+            right_damages: 'Loading...', 
+            top_damages: 'Loading...',
             s3_path: '2024_Oct_CR_WagonDamageDetection/Wagon_H/17-06-2025/admin1/Comparision_Results'
         },
-        // Add more rows here as needed, each with its own s3_path
-    ];
+        // You can add more initial train data here
+    ]);
     
     // This handler now opens the modal and fetches the live data
     const handleOpenComparisonModal = async (trainData) => {
@@ -131,7 +153,7 @@ const NewDashboardPage = () => {
             if(response.success){
                 setComparisonDetails(response.details);
             } else {
-                toast.error("Failed to fetch comparison details.");
+                toast.error(response.error || "Failed to fetch comparison details.");
             }
         } catch (error) {
             console.error("Error fetching comparison details:", error);
@@ -153,13 +175,37 @@ const NewDashboardPage = () => {
         const chartInstances = [];
         const fetchDataAndCreateCharts = async () => {
             try {
+                // Fetch system status and chart data
                 const statusRes = await getSystemStatus();
                 if (statusRes.error) console.error("Error fetching system status:", statusRes.error); else setStats(statusRes);
                 const chartRes = await getChartData();
                 if (chartRes.error) console.error("Error fetching chart data:", chartRes.error); else setChartsData(chartRes);
-            } catch (error) { console.error("Dashboard data fetching error:", error); }
+
+                // **EDIT**: Fetch damage counts for each train in the comparison table
+                // Use Promise.all to fetch all counts in parallel
+                const updatedData = await Promise.all(comparisonData.map(async (train) => {
+                    const countsRes = await getDamageCounts(train.s3_path);
+                    if (countsRes.success) {
+                        return {
+                            ...train,
+                            left_damages: countsRes.counts.left_view_damages,
+                            right_damages: countsRes.counts.right_view_damages,
+                            top_damages: countsRes.counts.top_view_damages,
+                        };
+                    }
+                    // Return original train data with error message on failure
+                    return { ...train, left_damages: 'Error', right_damages: 'Error', top_damages: 'Error' };
+                }));
+                setComparisonData(updatedData);
+
+            } catch (error) { 
+                console.error("Dashboard data fetching error:", error); 
+            }
         };
+
         fetchDataAndCreateCharts();
+
+        // Chart creation logic (no changes needed here)
         if (chartsData) {
             const createChart = (ctx, config) => {
                 if (ctx) {
@@ -175,7 +221,7 @@ const NewDashboardPage = () => {
             if (chartsData.damage_types) createChart(severityCtx, { type: 'bar', data: { labels: chartsData.damage_types.labels, datasets: [{ label: 'Damage Count', data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
         }
         return () => chartInstances.forEach(chart => chart.destroy());
-    }, [chartsData]);
+    }, [chartsData]); // This effect still depends on chartsData to redraw charts
 
     return (
         <>
@@ -215,8 +261,8 @@ const NewDashboardPage = () => {
                                 {comparisonData.map((row) => (
                                     <tr key={row.id}>
                                         <td>
-                                            <a href="#" onClick={(e) => { e.preventDefault(); handleOpenComparisonModal(row); }} className="link-primary">
-                                                <strong>{row.id}</strong>
+                                            <a href="#" onClick={(e) => { e.preventDefault(); handleOpenComparisonModal(row); }} className="link-primary fw-bold">
+                                                {row.id}
                                             </a>
                                         </td>
                                         <td>{row.date}</td>
