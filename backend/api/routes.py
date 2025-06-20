@@ -327,7 +327,7 @@ def get_damage_counts(current_user, s3_path):
 @api_bp.route('/run-comparison', methods=['POST'])
 def run_comparison_route():
     data = request.get_json()
-    # logging.info("Received POST /run-comparison")
+    logging.info("Received POST /run-comparison")
     # Extract and validate required fields
     date = data.get('date')
     name = data.get('name')
@@ -340,16 +340,17 @@ def run_comparison_route():
         date_obj = datetime.datetime.strptime(date, '%Y-%m-%d')
         date = date_obj.strftime('%d-%m-%Y')
     except ValueError:
-        # logging.info(f"Error in date formatting : {date}")
+        logging.info(f"Error in date formatting : {date}")
         return jsonify({'error': 'Invalid date format'}), 400
 
     # Construct the S3 path
     relative_path = os.getenv("S3_BASE_DIR")+f"/{date}/{name}/Processed_Frames/{view}"
-    # logging.info(f"{relative_path}")
+    logging.info(f"{relative_path}")
     bucket_name = os.getenv("S3_BUCKET_NAME")
-    # logging.info(f"{bucket_name}")
+    logging.info(f"{bucket_name}")
 
     try:
+        logging.info("Processing....")
         _,msg = run_comparison(bucket_name, relative_path)
         return jsonify({'message': msg}), 200
     except Exception as e:
