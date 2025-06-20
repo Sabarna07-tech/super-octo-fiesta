@@ -1,3 +1,4 @@
+# filename: backend/app.py
 from flask import Flask
 from flask_cors import CORS
 from api.routes import api_bp
@@ -5,6 +6,7 @@ from config import Config
 import os
 from dotenv import load_dotenv
 import logging
+import redis  # Import the redis library
 
 load_dotenv()
 
@@ -16,7 +18,21 @@ def create_app():
     # Enable CORS for all routes
     CORS(app)
 
-    # FIX: Use the original UPPERCASE config key for Flask
+    # --- Caching Implementation: Start ---
+    # Initialize the Redis client.
+    # This uses the REDIS_URL from your configuration, defaulting to a standard local Redis instance.
+    # This same client can be used for caching and other Redis operations.
+    try:
+        redis_url = app.config.get('REDIS_URL', 'redis://localhost:6379/0')
+        app.redis = redis.from_url(redis_url)
+        # Ping the Redis server to check the connection on startup
+        app.redis.ping()
+        logging.info("Successfully connected to Redis.")
+    except redis.exceptions.ConnectionError as e:
+        logging.error(f"Could not connect to Redis: {e}")
+        app.redis = None # Set to None if connection fails
+    # --- Caching Implementation: End ---
+
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
 
@@ -26,4 +42,8 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    # Ensure Redis is available before running
+    if app.redis is None:
+        logging.error("Flask application cannot start without a Redis connection.")
+    else:
+        app.run(debug=True)

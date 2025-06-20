@@ -1,3 +1,4 @@
+// filename: frontend/src/pages/NewDashboardPage.jsx
 import React, { useEffect, useState } from 'react';
 import Chart from 'chart.js/auto';
 // Import the new API function and toast for notifications
@@ -173,18 +174,19 @@ const NewDashboardPage = () => {
         setComparisonDetails(null);
     };
 
+    // --- CACHING FIX: START ---
+    // This useEffect is for fetching data. It runs only ONCE.
     useEffect(() => {
-        const chartInstances = [];
-        const fetchDataAndCreateCharts = async () => {
+        const fetchData = async () => {
             try {
                 // Fetch system status and chart data
                 const statusRes = await getSystemStatus();
                 if (statusRes.error) console.error("Error fetching system status:", statusRes.error); else setStats(statusRes);
+                
                 const chartRes = await getChartData();
                 if (chartRes.error) console.error("Error fetching chart data:", chartRes.error); else setChartsData(chartRes);
 
-                // **EDIT**: Fetch damage counts for each train in the comparison table
-                // Use Promise.all to fetch all counts in parallel
+                // Fetch damage counts for each train in the comparison table
                 const updatedData = await Promise.all(comparisonData.map(async (train) => {
                     const countsRes = await getDamageCounts(train.s3_path);
                     if (countsRes.success) {
@@ -195,7 +197,6 @@ const NewDashboardPage = () => {
                             top_damages: countsRes.counts.top_view_damages,
                         };
                     }
-                    // Return original train data with error message on failure
                     return { ...train, left_damages: 'Error', right_damages: 'Error', top_damages: 'Error' };
                 }));
 				
@@ -215,26 +216,36 @@ const NewDashboardPage = () => {
             }
         };
 
-        fetchDataAndCreateCharts();
+        fetchData();
+    // Add an empty dependency array `[]` to ensure this runs only once.
+    }, []);
 
-        // Chart creation logic (no changes needed here)
+    // This useEffect is for creating charts. It runs only when `chartsData` changes.
+    useEffect(() => {
+        const chartInstances = [];
+        const createChart = (ctx, config) => {
+            if (ctx) {
+                const chart = new Chart(ctx, { ...config, options: { ...config.options, responsive: true, maintainAspectRatio: false, animation: true } });
+                chartInstances.push(chart);
+            }
+        };
+        
         if (chartsData) {
-            const createChart = (ctx, config) => {
-                if (ctx) {
-                    const chart = new Chart(ctx, { ...config, options: { ...config.options, responsive: true, maintainAspectRatio: false, animation: true } });
-                    chartInstances.push(chart);
-                }
-            };
             const weeklyCtx = document.getElementById('weeklyTrainsChart');
             if (chartsData.damage_by_date) createChart(weeklyCtx, { type: 'line', data: { labels: chartsData.damage_by_date.labels, datasets: [{ label: 'Trains Processed', data: chartsData.damage_by_date.data, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', tension: 0.4, fill: true }] } });
+            
             const damageCtx = document.getElementById('damageTypesChart');
             if (chartsData.damage_types) createChart(damageCtx, { type: 'doughnut', data: { labels: chartsData.damage_types.labels, datasets: [{ data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'], borderWidth: 0 }] }, options: { plugins: { legend: { display: false } } } });
+            
             const severityCtx = document.getElementById('severityTrendsChart');
             if (chartsData.damage_types) createChart(severityCtx, { type: 'bar', data: { labels: chartsData.damage_types.labels, datasets: [{ label: 'Damage Count', data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
         }
 
         return () => chartInstances.forEach(chart => chart.destroy());
-    }, [chartsData]);
+    // This now correctly depends on `chartsData`
+    }, [chartsData]); 
+    // --- CACHING FIX: END ---
+
 
     return (
         <>

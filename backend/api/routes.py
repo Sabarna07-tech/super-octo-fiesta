@@ -1,3 +1,4 @@
+# filename: backend/api/routes.py
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 import jwt
@@ -5,6 +6,7 @@ import datetime
 from functools import wraps
 import os
 import logging
+import json # Import the json library for serializing/deserializing cache data
 
 
 from services.celery_worker import process_s3_videos_task, process_single_s3_video_task
@@ -15,6 +17,9 @@ from services.s3_utils import (
     get_s3_usage_stats, generate_presigned_url, get_comparison_details_from_s3
 )
 from services.compare import run_comparison
+# In backend/api/routes.py
+# Make sure to import the new function
+from services.s3_utils import get_damage_counts_from_s3
 
 
 
@@ -249,66 +254,124 @@ def cancel_task(current_user, task_id):
         current_app.logger.error(f"Error cancelling task {task_id}: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to send cancellation request.'}), 500
 
+# --- Caching Implementation: /system-status endpoint ---
 @api_bp.route('/system-status', methods=['GET'])
 @token_required
 def get_system_status(current_user):
+    # This data is expensive to calculate, so we cache it.
+    cache_key = "system_status"
+    CACHE_TTL = 600  # Cache for 10 minutes
+
     try:
+        # 1. Check server-side cache first
+        if current_app.redis:
+            cached_data = current_app.redis.get(cache_key)
+            if cached_data:
+                response_data = json.loads(cached_data)
+                response = jsonify(response_data)
+                response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+                response.headers['X-Cache'] = 'HIT' # For debugging
+                return response
+
+        # 2. Cache Miss: Get data from the source (S3)
         stats = get_s3_usage_stats(
             bucket_name=current_app.config['S3_BUCKET'],
             prefix=current_app.config['S3_UPLOAD_FOLDER']
         )
-        
-        return jsonify({
+        response_data = {
             "total_videos": stats.get('total_videos', 0),
             "storage_usage": format_bytes(stats.get('total_size_bytes', 0)),
             "total_detections": stats.get('total_detections', 0), 
             "processing_speed": "Optimal"
-        })
+        }
+        
+        # 3. Store the result in the cache for next time
+        if current_app.redis:
+            current_app.redis.set(cache_key, json.dumps(response_data), ex=CACHE_TTL)
+        
+        # 4. Return the response, now with browser caching enabled
+        response = jsonify(response_data)
+        response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+        response.headers['X-Cache'] = 'MISS' # For debugging
+        return response
+
     except Exception as e:
+        current_app.logger.error(f"Error in /system-status: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route('/chart-data', methods=['GET'])
 @token_required
 def get_chart_data(current_user):
+    # This is static mock data, but could also be cached if it were dynamic
     return jsonify({ "damage_by_date": {"labels": ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'], "data": [2, 3, 1, 5, 4]}, "damage_types": {"labels": ['Scratch', 'Dent', 'Crack', 'Rust'], "data": [5, 3, 2, 2]} })
 
+# --- Caching Implementation: /comparison-details endpoint ---
 @api_bp.route('/comparison-details/<path:s3_path>', methods=['GET'])
 @token_required
 def comparison_details(current_user, s3_path):
-    """
-    Fetches structured comparison data from a specified S3 path.
-    """
     if not s3_path:
         return jsonify({'success': False, 'error': 'S3 path parameter is missing.'}), 400
 
+    cache_key = f"comparison_details:{s3_path}"
+    CACHE_TTL = 3600  # Cache for 1 hour
+
     try:
+        # 1. Check server-side cache
+        if current_app.redis:
+            cached_data = current_app.redis.get(cache_key)
+            if cached_data:
+                response_data = json.loads(cached_data)
+                response = jsonify(response_data)
+                response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+                response.headers['X-Cache'] = 'HIT'
+                return response
+        
+        # 2. Cache Miss: Get data from S3
         details = get_comparison_details_from_s3(
             bucket_name=current_app.config['S3_BUCKET'],
             prefix=s3_path
         )
-        
         if details is None:
-            return jsonify({'success': False, 'error': 'Failed to retrieve details from S3. The path may be incorrect or the service unavailable.'}), 500
+            return jsonify({'success': False, 'error': 'Failed to retrieve details.'}), 500
 
-        return jsonify({'success': True, 'details': details})
+        response_data = {'success': True, 'details': details}
+
+        # 3. Store result in cache
+        if current_app.redis:
+            current_app.redis.set(cache_key, json.dumps(response_data), ex=CACHE_TTL)
+
+        # 4. Return response with browser caching
+        response = jsonify(response_data)
+        response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+        response.headers['X-Cache'] = 'MISS'
+        return response
 
     except Exception as e:
         current_app.logger.error(f"Error processing comparison details for path '{s3_path}': {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
-    # In backend/api/routes.py
-# Make sure to import the new function
-from services.s3_utils import get_damage_counts_from_s3
-
+    
+# --- Caching Implementation: /damage-counts endpoint ---
 @api_bp.route('/damage-counts/<path:s3_path>', methods=['GET'])
 @token_required
 def get_damage_counts(current_user, s3_path):
-    """
-    API endpoint to get the counts of damages from a specific S3 path.
-    """
     if not s3_path:
         return jsonify({'success': False, 'error': 'S3 path is required.'}), 400
 
+    cache_key = f"damage_counts:{s3_path}"
+    CACHE_TTL = 3600 # Cache for 1 hour
+
     try:
+        # 1. Check server-side cache
+        if current_app.redis:
+            cached_data = current_app.redis.get(cache_key)
+            if cached_data:
+                response_data = json.loads(cached_data)
+                response = jsonify(response_data)
+                response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+                response.headers['X-Cache'] = 'HIT'
+                return response
+
+        # 2. Cache Miss: Get data from S3
         counts = get_damage_counts_from_s3(
             bucket_name=current_app.config['S3_BUCKET'],
             base_prefix=s3_path
@@ -316,14 +379,22 @@ def get_damage_counts(current_user, s3_path):
         if counts is None:
             return jsonify({'success': False, 'error': 'Failed to retrieve damage counts.'}), 500
             
-        return jsonify({'success': True, 'counts': counts})
+        response_data = {'success': True, 'counts': counts}
+
+        # 3. Store result in cache
+        if current_app.redis:
+            current_app.redis.set(cache_key, json.dumps(response_data), ex=CACHE_TTL)
+        
+        # 4. Return response with browser caching
+        response = jsonify(response_data)
+        response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
+        response.headers['X-Cache'] = 'MISS'
+        return response
 
     except Exception as e:
         current_app.logger.error(f"Error getting damage counts for {s3_path}: {e}")
         return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
         
-        
-      
 @api_bp.route('/run-comparison', methods=['POST'])
 def run_comparison_route():
     data = request.get_json()
@@ -348,6 +419,18 @@ def run_comparison_route():
     logging.info(f"{relative_path}")
     bucket_name = os.getenv("S3_BUCKET_NAME")
     logging.info(f"{bucket_name}")
+
+    # --- Caching Invalidation ---
+    # When a comparison is re-run, we must clear the old cache keys related to it.
+    if current_app.redis:
+        # Construct the cache keys that would have been used
+        s3_path_for_details = relative_path  # This needs to match the path used in the GET requests
+        details_key = f"comparison_details:{s3_path_for_details}"
+        counts_key = f"damage_counts:{s3_path_for_details}"
+        # Delete the keys
+        current_app.redis.delete(details_key, counts_key)
+        logging.info(f"Invalidated cache for keys: {details_key}, {counts_key}")
+    # --- End Invalidation ---
 
     try:
         logging.info("Processing....")
