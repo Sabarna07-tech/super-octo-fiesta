@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { postCompare,cancelTask } from '../api/apiService.js';
 import axios from 'axios';
 
 const DamageComparison = () => {
@@ -8,15 +9,38 @@ const DamageComparison = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
+	const [taskId,setTaskId] = useState(null);
 
     useEffect(() => {
         // Set today's date as default
         const today = new Date().toISOString().split('T')[0];
         setRetrieveDate(today);
     }, []);
+	
+	const taskCancel = async() => {
+		try{
+			const res = await cancelTask(taskId);
+			setStatus('');
+			setError('');
+			if(res?.message){
+				setStatus(res.message);
+			}else{
+				setError(res?.error);
+			}
+			setTaskId(null);
+		}catch (err) {
+            console.error(err);
+            setError('Error while starting comparison. Please check server logs.');
+		}
+	}
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+		
+		if(taskId){
+			setStatus("Already One task is queued. Please Wait for it to finish.");
+			return;
+		}
         setIsLoading(true);
         setStatus('');
         setError('');
@@ -28,11 +52,13 @@ const DamageComparison = () => {
         };
 
         try {
-            const res = await axios.post('http://127.0.0.1:5000/api/run-comparison', payload); // adjust API path if needed
-            if (res.data?.message) {
-                setStatus(res.data.message);
+            {/*const res = await axios.post('http://127.0.0.1:5000/api/run-comparison', payload); // adjust API path if needed*/}
+			const res = await postCompare(payload);
+			setTaskId(res.task_id);
+            if (res?.message) {
+                setStatus(res.message);
             } else {
-                setError(res.data?.error || 'Unknown response from server');
+                setError(res?.error || 'Unknown response from server');
             }
         } catch (err) {
             console.error(err);
@@ -76,6 +102,13 @@ const DamageComparison = () => {
                         </div>
                     </div>
                 </form>
+				{taskId && (
+					<div className="mt-3">
+						<button onClick={() => taskCancel()} className="btn btn-danger">
+							Cancel Process
+						</button>
+					</div>
+				)}
 
                 {status && <div className="alert alert-success mt-4">{status}</div>}
                 {error && <div className="alert alert-danger mt-4">{error}</div>}

@@ -10,7 +10,7 @@ services:
     # This command starts the Redis server and passes configuration flags.
     command: 
       - redis-server
-      - --maxmemory 512mbd
+      - --maxmemory 512mb
       - --maxmemory-policy volatile-lru
     # --- Caching Policy Implementation: End ---
 
@@ -28,7 +28,7 @@ services:
 
   worker:
     build: .
-    command: ["celery", "-A", "services.celery_worker.celery", "worker", "--loglevel=info", "-P", "threads"]
+    command: ["celery", "-A", "services.celery_worker.celery", "worker", "--loglevel=info", "--pool=prefork"]
     volumes:
       - .:/app
     env_file:

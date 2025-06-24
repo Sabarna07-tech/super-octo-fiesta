@@ -69,7 +69,7 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
                         </div>
                         <div className="modal-body">
                             <table className="table mb-4">
-                                <thead><tr><th>Train ID</th><th>Wagons</th><th>Left View Damages</th><th>Right View Damages</th><th>Top View Damages</th><th>Actions</th></tr></thead>
+                                <thead><tr><th>Train ID</th><th>Wagons</th><th>Left View Variations</th><th>Right View Variations</th><th>Top View Variations</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     <tr>
                                         <td>{data?.id}</td><td>{data?.wagons}</td><td>{data?.left_damages}</td>
@@ -131,8 +131,8 @@ const NewDashboardPage = () => {
     const [comparisonData, setComparisonData] = useState([
         { 
             id: 'TR-COMP-001', 
-            date: '2025-06-17', 
-            wagons: 2, 
+            date: '2025-06-17',
+            wagons: 59, 
             left_damages: 'Loading...', // Default loading state
             right_damages: 'Loading...', 
             top_damages: 'Loading...',
@@ -251,21 +251,21 @@ const NewDashboardPage = () => {
         <>
             <div className="fade-in">
                 {/* --- KPI CARDS --- */}
-				{/*<div className="dashboard-grid">
+				<div className="dashboard-grid">
                     <div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Total Trains</span><div className="kpi-icon primary"><i className="fas fa-train"></i></div></div><div className="kpi-value">{stats?.total_videos ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>All time</span></div></div>
                     <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Processed Videos</span><div className="kpi-icon success"><i className="fas fa-video"></i></div></div><div className="kpi-value">{stats?.total_videos ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>{stats?.storage_usage}</span></div></div>
-                    <div className="kpi-card warning"><div className="kpi-header"><span className="kpi-title">Damage Detected</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{stats?.total_detections ?? '...'}</div><div className="kpi-change neutral"><span>Frames</span></div></div>
-						{/*<div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Processing Rate</span><div className="kpi-icon primary"><i className="fas fa-tachometer-alt"></i></div></div><div className="kpi-value">{stats?.processing_speed ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>Efficiency</span></div></div>
+                    <div className="kpi-card warning"><div className="kpi-header"><span className="kpi-title">Variations Observed</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{stats?.total_detections ?? '...'}</div><div className="kpi-change neutral"><span>Frames</span></div></div>
+						<div className="kpi-card"><div className="kpi-header"><span className="kpi-title">Processing Rate</span><div className="kpi-icon primary"><i className="fas fa-tachometer-alt"></i></div></div><div className="kpi-value">{stats?.processing_speed ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>Efficiency</span></div></div>
                     <div className="kpi-card success"><div className="kpi-header"><span className="kpi-title">Inspections Complete</span><div className="kpi-icon success"><i className="fas fa-check-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i>&nbsp;</div></div>
 						<div className="kpi-card danger"><div className="kpi-header"><span className="kpi-title">Critical Issues</span><div className="kpi-icon danger"><i className="fas fa-times-circle"></i></div></div><div className="kpi-value">&nbsp;</div><div className="kpi-change neutral">&nbsp;</div></div>
-				</div>*/}
+				</div>
 
                 {/* --- CHARTS --- */}
-				{/*<div className="charts-section">
+				<div className="charts-section">
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Weekly Trains Processed</h3></div><div className="chart-container"><canvas id="weeklyTrainsChart"></canvas></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Types Distribution</h3></div><div className="chart-container"><canvas id="damageTypesChart"></canvas></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Severity Trends</h3></div><div className="chart-container"><canvas id="severityTrendsChart"></canvas></div></div>
-				</div>*/}
+				</div>
 
                 {/* --- COMPARISON TABLE --- */}
                 <div className="data-section mt-4">
@@ -276,9 +276,9 @@ const NewDashboardPage = () => {
                                 <tr>
                                     <th>Train ID</th>
                                     <th>Date</th>
-                                    <th>Left View Damages</th>
-                                    <th>Right View Damages</th>
-                                    <th>Top View Damages</th>
+                                    <th>Left View Variations</th>
+                                    <th>Right View Variations</th>
+                                    <th>Top View Variations</th>
                                 </tr>
                             </thead>
                             <tbody>

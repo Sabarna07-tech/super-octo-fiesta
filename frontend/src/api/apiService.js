@@ -88,7 +88,7 @@ export const getTaskStatus = async (taskId) => {
  * Sends a request to cancel a running Celery task.
  */
 export const cancelTask = async (taskId) => {
-    const response = await fetchWithAuth(`${API_URL}/task-cancel/${taskId}`, {
+    const response = await fetchWithAuth(`${API_URL}/cancel-task/${taskId}`, {
         method: 'POST',
         headers: getAuthHeaders(),
     });
@@ -198,4 +198,20 @@ export const getVideoUrl = async (s3_key) => {
       throw new Error('Failed to fetch video URL');
     }
     return response.json();
+};
+
+/**
+ * posts a comparison request to the server.
+ */
+export const postCompare = async (payload) => {
+	const response = await fetchWithAuth(`${API_URL}/run-comparison`,{
+		method: 'POST',
+		headers: getAuthHeaders(),
+		'Content-Type': 'application/json',
+		body: JSON.stringify(payload),
+	});
+	if (!response.ok){
+		throw new Error('Failed to post request');
+	}
+	return await response.json()
 };

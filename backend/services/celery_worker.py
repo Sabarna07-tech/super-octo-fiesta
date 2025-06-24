@@ -1,4 +1,4 @@
-from celery import Celery
+from celery import Celery,shared_task
 from kombu import Queue
 import time
 import logging
@@ -6,6 +6,7 @@ import os
 
 from .frame_extractor import FrameExtractor
 from .s3_utils import list_videos_in_folder
+from .compare import run_comparison
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -182,3 +183,19 @@ def process_s3_videos_task(self, bucket_name, s3_prefix):
         logger.error(f"Error in Celery task: {e}", exc_info=True)
         self.update_state(state='FAILURE', meta={'status': str(e)})
         return {'status': 'Failed', 'error': str(e)}
+
+        
+# Celery Worker for Comparison Task
+@celery.task(bind=True)
+def run_comparison_task(self, bucket_name, relative_path):
+    self.update_state(state='PENDING', meta={'status': 'Initializing...', 'progress': 0})
+    try:
+        logging.info(f"Running comparison task for: {relative_path}")
+        status, msg = run_comparison(bucket_name, relative_path)
+        self.update_state(state='SUCCESS' if status else 'FAILED', meta={'status': 'Success' if status else 'failed','processed': 100})
+        return {'status': status, 'message': msg}
+    except Exception as e:
+        logging.error(f"Error during comparison: {str(e)}")
+        self.update_state(state='FAILED',meta={'status'})
+        return {'status': False, 'message': str(e)}
+        

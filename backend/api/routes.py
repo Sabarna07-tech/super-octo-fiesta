@@ -1,4 +1,3 @@
-# filename: backend/api/routes.py
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 import jwt
@@ -6,10 +5,16 @@ import datetime
 from functools import wraps
 import os
 import logging
-import json # Import the json library for serializing/deserializing cache data
+from services.celery_worker import celery
+from celery.result import AsyncResult
+import signal
+from dotenv import load_dotenv
 
+load_dotenv()
 
-from services.celery_worker import process_s3_videos_task, process_single_s3_video_task
+from services.s3_utils import get_damage_counts_from_s3
+
+from services.celery_worker import process_s3_videos_task, process_single_s3_video_task,run_comparison_task
 from celery.result import AsyncResult
 # Import the new S3 stats utility
 from services.s3_utils import (
@@ -17,9 +22,6 @@ from services.s3_utils import (
     get_s3_usage_stats, generate_presigned_url, get_comparison_details_from_s3
 )
 from services.compare import run_comparison
-# In backend/api/routes.py
-# Make sure to import the new function
-from services.s3_utils import get_damage_counts_from_s3
 
 
 
@@ -239,70 +241,58 @@ def task_status(current_user, task_id):
         
     return jsonify(response)
 
-@api_bp.route('/task-cancel/<task_id>', methods=['POST'])
+# Cancel task
+@api_bp.route('/cancel-task/<task_id>', methods=['POST'])
 @token_required
 def cancel_task(current_user, task_id):
-    """Revokes a celery task."""
-    if not task_id:
-        return jsonify({'success': False, 'error': 'Task ID is missing.'}), 400
+    """Revokes a Celery task by ID, with termination if supported."""
     try:
-        # Revoke the task. terminate=True will try to kill the worker process.
-        process_s3_videos_task.AsyncResult(task_id).revoke(terminate=True)
-        return jsonify({'success': True, 'message': f'Task {task_id} cancellation request sent.'})
-    except Exception as e:
-        # Log the exception
-        current_app.logger.error(f"Error cancelling task {task_id}: {str(e)}")
-        return jsonify({'success': False, 'error': 'Failed to send cancellation request.'}), 500
+        result = AsyncResult(task_id, app=celery)
+        state = result.state
 
-# --- Caching Implementation: /system-status endpoint ---
+        if state in ['PENDING', 'RECEIVED', 'STARTED']:
+            # Attempt to revoke and terminate the task if supported
+            try:
+                result.revoke(terminate=True, signal=signal.SIGTERM)
+                logging.info(f"Task revoked with SIGTERM")
+                return jsonify({'message': f'Task has been revoked'}), 200
+            except NotImplementedError as e:
+                logging.warning(f"Task pool does not support terminate: {str(e)}")
+                result.revoke(terminate=False)
+                return jsonify({
+                    'message': f'Task {task_id} marked for revocation, but force-terminate is not supported by current worker pool.'
+                }), 200
+        elif state in ['SUCCESS', 'FAILURE', 'REVOKED']:
+            return jsonify({'message': f'Task is already {state.lower()}.'}), 200
+        else:
+            return jsonify({'error': f'Task cannot be cancelled from state: {state}'}), 400
+
+    except Exception as e:
+        logging.error(f"Failed to revoke task {task_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to cancel task: {str(e)}'}), 500
+
+
 @api_bp.route('/system-status', methods=['GET'])
 @token_required
 def get_system_status(current_user):
-    # This data is expensive to calculate, so we cache it.
-    cache_key = "system_status"
-    CACHE_TTL = 600  # Cache for 10 minutes
-
     try:
-        # 1. Check server-side cache first
-        if current_app.redis:
-            cached_data = current_app.redis.get(cache_key)
-            if cached_data:
-                response_data = json.loads(cached_data)
-                response = jsonify(response_data)
-                response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
-                response.headers['X-Cache'] = 'HIT' # For debugging
-                return response
-
-        # 2. Cache Miss: Get data from the source (S3)
         stats = get_s3_usage_stats(
             bucket_name=current_app.config['S3_BUCKET'],
             prefix=current_app.config['S3_UPLOAD_FOLDER']
         )
-        response_data = {
+        
+        return jsonify({
             "total_videos": stats.get('total_videos', 0),
             "storage_usage": format_bytes(stats.get('total_size_bytes', 0)),
             "total_detections": stats.get('total_detections', 0), 
             "processing_speed": "Optimal"
-        }
-        
-        # 3. Store the result in the cache for next time
-        if current_app.redis:
-            current_app.redis.set(cache_key, json.dumps(response_data), ex=CACHE_TTL)
-        
-        # 4. Return the response, now with browser caching enabled
-        response = jsonify(response_data)
-        response.headers['Cache-Control'] = f'public, max-age={CACHE_TTL}'
-        response.headers['X-Cache'] = 'MISS' # For debugging
-        return response
-
+        })
     except Exception as e:
-        current_app.logger.error(f"Error in /system-status: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route('/chart-data', methods=['GET'])
 @token_required
 def get_chart_data(current_user):
-    # This is static mock data, but could also be cached if it were dynamic
     return jsonify({ "damage_by_date": {"labels": ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'], "data": [2, 3, 1, 5, 4]}, "damage_types": {"labels": ['Scratch', 'Dent', 'Crack', 'Rust'], "data": [5, 3, 2, 2]} })
 
 # --- Caching Implementation: /comparison-details endpoint ---
@@ -349,7 +339,7 @@ def comparison_details(current_user, s3_path):
     except Exception as e:
         current_app.logger.error(f"Error processing comparison details for path '{s3_path}': {e}", exc_info=True)
         return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
-    
+from services.s3_utils import get_damage_counts_from_s3
 # --- Caching Implementation: /damage-counts endpoint ---
 @api_bp.route('/damage-counts/<path:s3_path>', methods=['GET'])
 @token_required
@@ -394,9 +384,11 @@ def get_damage_counts(current_user, s3_path):
     except Exception as e:
         current_app.logger.error(f"Error getting damage counts for {s3_path}: {e}")
         return jsonify({'success': False, 'error': 'An internal server error occurred.'}), 500
+    
         
 @api_bp.route('/run-comparison', methods=['POST'])
-def run_comparison_route():
+@token_required
+def run_comparison_route(current_user):
     data = request.get_json()
     logging.info("Received POST /run-comparison")
     # Extract and validate required fields
@@ -419,7 +411,6 @@ def run_comparison_route():
     logging.info(f"{relative_path}")
     bucket_name = os.getenv("S3_BUCKET_NAME")
     logging.info(f"{bucket_name}")
-
     # --- Caching Invalidation ---
     # When a comparison is re-run, we must clear the old cache keys related to it.
     if current_app.redis:
@@ -431,11 +422,10 @@ def run_comparison_route():
         current_app.redis.delete(details_key, counts_key)
         logging.info(f"Invalidated cache for keys: {details_key}, {counts_key}")
     # --- End Invalidation ---
-
     try:
         logging.info("Processing....")
-        _,msg = run_comparison(bucket_name, relative_path)
-        return jsonify({'message': msg}), 200
+        task = run_comparison_task.apply_async(args=[bucket_name, relative_path])
     except Exception as e:
         logging.info(f"ERROR : \n{str(e)}")
         return jsonify({'error': str(e)}), 500
+    return jsonify({'task_id': task.id, 'message': 'Task started'}), 202

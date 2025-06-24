@@ -19,10 +19,14 @@ def clear_temp_dir(temp_dir:str):
     
 
 def run_comparison(bucket_name:str,path:str):
-    entry_temp_dir = tempfile.mkdtemp()
-    exit_temp_dir = tempfile.mkdtemp()
     output_path = path.replace('/Processed_Frames/','/Comparision_Results/')
     
+    if not (check_folder_exists_in_s3(bucket_name,path+'/entry') and check_folder_exists_in_s3(bucket_name,path+'/exit')):
+        return False,"proper path doesn't exist"
+    
+    
+    entry_temp_dir = tempfile.mkdtemp()
+    exit_temp_dir = tempfile.mkdtemp()
     entry_list = download_files_from_s3_to_temp(bucket_name,path+'/entry',entry_temp_dir)
     exit_list = download_files_from_s3_to_temp(bucket_name,path+'/exit',exit_temp_dir)
     
