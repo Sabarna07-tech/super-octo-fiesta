@@ -1,4 +1,4 @@
-import React, { createContext, useState, useRef, useEffect, useContext } from 'react';
+import React, { createContext, useState, useRef, useContext } from 'react';
 import { getTaskStatus, processS3Videos, cancelTask as apiCancelTask } from '../api/apiService';
 import { toast } from 'react-toastify';
 
@@ -42,6 +42,7 @@ export const TaskProvider = ({ children }) => {
                 toast.error(response.error || "Failed to send cancellation request.");
             }
         } catch (err) {
+            console.error("Cancellation API error:", err);
             toast.error("An error occurred while trying to cancel the task.");
         } finally {
             clearTask(); // Reset the UI state regardless
@@ -92,6 +93,7 @@ export const TaskProvider = ({ children }) => {
         } catch (err) {
             setTaskState('FAILURE');
             setError(err.message || 'An error occurred while starting the task.');
+            console.error("S3 Frame Extraction error:", err);
         }
     };
     

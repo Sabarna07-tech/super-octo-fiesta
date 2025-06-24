@@ -137,7 +137,7 @@ export const checkS3UploadStatus = async (s3_key) => {
  * Starts the processing of videos that are already on S3.
  */
 export const processS3Videos = async (videoKey) => {
-    const response = await fetchWithAuth(`${API__URL}/process-s3-videos`, {
+    const response = await fetchWithAuth(`${API_URL}/process-s3-videos`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ video_key: videoKey })
