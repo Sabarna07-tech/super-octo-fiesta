@@ -169,7 +169,7 @@ def pipeline(entry_img:np.ndarray, exit_img:np.ndarray, wagon_model_path:str, de
     exit_defects = detect_defects(exit_crop, defect_model_path)
 
     classified = match_defects(entry_defects, exit_defects, entry_crop, exit_crop)
-    label_map = {0: "gunny_bag", 1: "wire"}
+    label_map = label_map = {0: 'Dent', 1: 'gunny_bag', 2: 'hole', 3: 'missing_door', 4: 'open_door', 5: 'scratch', 6: 'wire'}
 
     entry_copy = entry_crop.copy()
     exit_copy = exit_crop.copy()

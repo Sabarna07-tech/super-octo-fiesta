@@ -24,7 +24,7 @@ const DamageDetectionPage = () => {
     const [selectedVideo, setSelectedVideo] = useState('');
     const [view, setView] = useState('form'); // form, preview, processing, results
     const [progress, setProgress] = useState(0);
-    const [status] = useState([
+    const [status, setStatus] = useState([
         { id: 'init', title: 'Initializing detection algorithm', subtitle: 'Setting up environment and loading models', state: 'waiting' },
         { id: 'extract', title: 'Frame extraction', subtitle: 'Extracting frames from video for analysis', state: 'waiting' },
         { id: 'object', title: 'Object detection', subtitle: 'Identifying wagon components in each frame', state: 'waiting' },

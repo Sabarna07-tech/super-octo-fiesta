@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { postCompare,cancelTask } from '../api/apiService.js';
-
+import axios from 'axios';
 
 const DamageComparison = () => {
     const [clientId, setClientId] = useState('');
