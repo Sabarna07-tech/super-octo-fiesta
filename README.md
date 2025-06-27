@@ -1,4 +1,4 @@
-# Wagon Damage Detection and Comparison Platform
+# Video Damage Detection and Comparison Platform
 
 This is a comprehensive web application designed for uploading, processing, and analyzing videos to detect damages. It features a React-based frontend, a Python Flask backend, and leverages Celery for asynchronous task processing, with a sophisticated architecture that separates GPU-intensive tasks from CPU-bound ones for optimal performance and scalability.
 
@@ -98,8 +98,8 @@ Follow these instructions to get the project running on your local machine.
 1. **Clone the repository:**
 
    ```sh
-   git clone https://github.com/your-username/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/Sabarna07-tech/super-octo-fiesta.git
+   cd super-octo-fiesta
    ```
 
 2. **Configure Backend Environment Variables:**
