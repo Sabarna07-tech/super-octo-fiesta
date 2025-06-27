@@ -2,144 +2,115 @@ import cv2
 import os
 import collections
 import logging
+import torch
 from ultralytics import YOLO
-from .s3_utils import download_file_from_s3, upload_bytes_to_s3, generate_presigned_url
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from .s3_utils import download_file_from_s3, upload_bytes_to_s3
+from .yaml_loader import load_yaml
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 class FrameExtractor:
-    def __init__(self, model_path='models/best_weights.pt'):
+    def __init__(self):
         """
-        Initializes the FrameExtractor with a YOLO model.
+        Initializes the FrameExtractor with a YOLO model and DeepSort tracker.
         """
+        self.config = load_yaml()
+        # device
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logger.info(f"Using device: {self.device}")
+
+        # load YOLO
+        model_path = self.config.get('MODEL_PATH', '')
         if os.path.exists(model_path):
             self.model = YOLO(model_path)
+            if torch.cuda.is_available():
+                self.model.to(self.device)
         else:
             self.model = None
-            logger.error(f"YOLO model not found at path: {model_path}")
+            logger.error(f"YOLO model not found at: {model_path}")
 
-    def extract_frames_from_video_s3(self, s3_key, bucket_name, output_prefix, frame_interval=10, task=None):
-        if not self.model:
-            return {'success': False, 'error': 'YOLO model not loaded.'}
+        # initialize DeepSort
+        # You can tweak max_age, n_init, nn_budget, etc. in your YAML if desired.
+        self.tracker = DeepSort(max_age=30,  # frames to keep lost tracks
+                                n_init=3,   # frames until confirmation
+                                nms_max_overlap=1.0,
+                                max_cosine_distance=0.2)
 
-        # Create a temporary directory to store the downloaded video
-        temp_dir = 'temp_downloads'
-        os.makedirs(temp_dir, exist_ok=True)
-        local_video_path = os.path.join(temp_dir, os.path.basename(s3_key))
+    def extract_wagon_frames(self, video_path, s3_save_path, bucket_name, task=None):
+        """
+        Extract one representative frame per unique wagon using YOLO + DeepSort.
+        Returns the number of frames saved.
+        """
+        CONF_THR = self.config['CONFIDENCE_THRESHOLD']
+        WAGON_CLASS_ID = self.config['WAGON_CLASS_ID']
+        CAPTURE_DELAY = self.config['CAPTURE_DELAY']
+        BUFFER_SIZE = CAPTURE_DELAY + 1
 
-        # Download the video from S3
-        if not download_file_from_s3(bucket_name, s3_key, local_video_path):
-            return {'success': False, 'error': f'Failed to download video from S3: {s3_key}'}
-
-        # Process the video to extract frames, passing the task object for progress updates
-        saved_frame_count, saved_frames = self.extract_wagon_frames(local_video_path, self.model, task=task)
-
-        # Upload frames to S3
-        frame_urls = []
-        if saved_frame_count > 0:
-            for i, frame_img in enumerate(saved_frames):
-                frame_filename = f"frame_{i+1}.jpg"
-                frame_s3_key = os.path.join(output_prefix, frame_filename).replace("\\", "/")
-                
-                # Encode frame to JPG bytes
-                _, img_encoded = cv2.imencode('.jpg', frame_img)
-                image_bytes = img_encoded.tobytes()
-
-                # Upload to S3
-                success, message = upload_bytes_to_s3(image_bytes, bucket_name, frame_s3_key)
-                if success:
-                    # Generate a presigned URL for the uploaded frame
-                    presigned_url = generate_presigned_url(bucket_name, frame_s3_key)
-                    if presigned_url:
-                        frame_urls.append(presigned_url)
-                else:
-                    logger.error(f"Failed to upload frame {frame_s3_key}: {message}")
-
-        # Clean up the local video file
-        if os.path.exists(local_video_path):
-            os.remove(local_video_path)
-
-        return {'success': True, 'frame_urls': frame_urls, 'count': len(frame_urls)}
-
-    def extract_wagon_frames(self, video_path, model, task=None):
-        # --- Configuration ---
-        CONFIDENCE_THRESHOLD = 0.6
-        WAGON_CLASS_ID = 1  # Assuming '1' is the class ID for wagons
-        CAPTURE_DELAY = 5
-        FRAME_BUFFER_SIZE = CAPTURE_DELAY + 1
-
-        if model is None:
-            logger.error("YOLO model is not loaded. Aborting extraction.")
-            if task:
-                task.update_state(state='FAILURE', meta={'status': 'Model not loaded.'})
-            return 0, []
+        if self.model is None:
+            logger.error("Model not loaded.")
+            return 0
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            logger.error(f"Error: Could not open video file {video_path}")
-            return 0, []
+            logger.error(f"Cannot open video: {video_path}")
+            return 0
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_buffer = collections.deque(maxlen=FRAME_BUFFER_SIZE)
-        current_capture_state = "SEARCHING_FOR_WAGON"
-        potential_capture_frame_img = None
-        saved_frame_count = 0
-        saved_frames = []
+        buffer = collections.deque(maxlen=BUFFER_SIZE)
+        saved_ids = set()
+        saved_count = 0
         frame_idx = 0
 
-        logger.info(f"Processing video: {video_path}...")
-        while cap.isOpened():
+        while True:
             ret, frame = cap.read()
             if not ret:
                 break
-
             frame_idx += 1
-            
-            # This block will now execute and send progress updates
-            if task and total_frames > 0 and frame_idx % 20 == 0:
-                progress = int((frame_idx / total_frames) * 90) # Progress within the video
-                task.update_state(state='PROGRESS', meta={'status': f'Processing frame {frame_idx}/{total_frames}', 'progress': progress})
+            # optional progress callback
+            if task and total_frames and frame_idx % 20 == 0:
+                prog = int((frame_idx/total_frames)*90)
+                task.update_state(state='PROGRESS', meta={'progress': prog})
 
-            # Run detection on the frame
-            results = model(frame, verbose=False, conf=CONFIDENCE_THRESHOLD)
-
-            # Extract coordinates for detected wagons
-            current_detected_wagon_boxes_coords = []
+            # YOLO inference
+            results = self.model(frame, verbose=False, conf=CONF_THR)
+            dets = []
             if results and results[0].boxes:
-                for box_obj in results[0].boxes:
-                    conf = box_obj.conf.item()
-                    cls_id = int(box_obj.cls.item())
+                for box in results[0].boxes:
+                    if int(box.cls.item()) == WAGON_CLASS_ID:
+                        x1, y1, x2, y2 = box.xyxy.cpu().numpy().flatten().tolist()
+                        conf = float(box.conf.cpu().numpy())
+                        if conf >= CONF_THR:
+                            dets.append(([x1, y1, x2, y2], conf, None))
 
-                    if cls_id == WAGON_CLASS_ID and conf >= CONFIDENCE_THRESHOLD:
-                        current_detected_wagon_boxes_coords.append(box_obj.xyxy.cpu().numpy().flatten().tolist())
+            # add to buffer
+            buffer.append(frame.copy())
 
-            frame_buffer.append((frame.copy(), current_detected_wagon_boxes_coords))
+            # run tracker on this frame
+            tracks = self.tracker.update_tracks(dets, frame=frame)
 
-            if len(frame_buffer) == FRAME_BUFFER_SIZE:
-                num_current_wagon_boxes = len(current_detected_wagon_boxes_coords)
-                oldest_frame_img_in_buf, oldest_wagon_boxes_in_buf_coords = frame_buffer[0]
-                num_oldest_wagon_boxes_in_buf = len(oldest_wagon_boxes_in_buf_coords)
-
-                if current_capture_state == "SEARCHING_FOR_WAGON":
-                    if num_current_wagon_boxes == 1:
-                        current_capture_state = "SINGLE_WAGON_PASSING"
-                        potential_capture_frame_img = None
-                elif current_capture_state == "SINGLE_WAGON_PASSING":
-                    if num_current_wagon_boxes == 1:
-                        if num_oldest_wagon_boxes_in_buf == 1:
-                            potential_capture_frame_img = oldest_frame_img_in_buf.copy()
-                    else:
-                        if potential_capture_frame_img is not None:
-                            saved_frames.append(potential_capture_frame_img)
-                            saved_frame_count += 1
-                        potential_capture_frame_img = None
-                        current_capture_state = "SEARCHING_FOR_WAGON"
-
-        if current_capture_state == "SINGLE_WAGON_PASSING" and potential_capture_frame_img is not None:
-            saved_frames.append(potential_capture_frame_img)
-            saved_frame_count += 1
+            # for each confirmed track, if new, save the buffered frame CAPTURE_DELAY ago
+            for track in tracks:
+                if not track.is_confirmed():
+                    continue
+                try:
+                    tid = int(track.track_id)
+                    tid_formatted = f"{tid:03d}"
+                except ValueError:
+                    # fallback to zero-fill string
+                    tid_formatted = str(track.track_id).zfill(3)
+                print(tid_formatted)
+                
+                if tid not in saved_ids and len(buffer) == BUFFER_SIZE:
+                    # grab the oldest frame in buffer
+                    rep_frame = buffer[0]
+                    _, buf = cv2.imencode('.jpg', rep_frame)
+                    key = f"{s3_save_path}/wagon_{tid_formatted}.jpg"
+                    upload_bytes_to_s3(buf.tobytes(), bucket_name, key)
+                    logger.info(f"Saved wagon track {track.track_id} -> {key}")
+                    saved_ids.add(tid)
+                    saved_count += 1
 
         cap.release()
-        logger.info(f"Processing complete. Extracted {saved_frame_count} individual wagon frames.")
-        return saved_frame_count, saved_frames
+        logger.info(f"Saved {saved_count} unique wagon frames to {s3_save_path}")
+        return saved_count
