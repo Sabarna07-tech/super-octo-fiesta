@@ -1,0 +1,9 @@
+frame_extractor:
+  CONFIDENCE_THRESHOLD: 0.6
+  WAGON_CLASS_ID: 1
+  CAPTURE_DELAY: 5
+  MODEL_PATH: 'models/best_new.pt'
+  CENTER_TOLERANCE_PX: 80
+
+app:
+  port: 5005

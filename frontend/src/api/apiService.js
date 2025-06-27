@@ -1,7 +1,6 @@
 // The base URL for your Flask backend API
 const API_URL = 'http://127.0.0.1:5000/api';
 
-const GPU_API_URL = 'http://127.0.0.1:5005/api';
 /**
  * A helper function to create authorization headers.
  */

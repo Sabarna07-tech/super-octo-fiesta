@@ -1,209 +1,224 @@
-# Video Damage Detection and Comparison Platform
+# Wagon Damage Detection System
 
-This is a comprehensive web application designed for uploading, processing, and analyzing videos to detect damages. It features a React-based frontend, a Python Flask backend, and leverages Celery for asynchronous task processing, with a sophisticated architecture that separates GPU-intensive tasks from CPU-bound ones for optimal performance and scalability.
+A full-stack, containerized web application that automatically detects, classifies, and reports damage to train wagons from video footage. The system features secure role-based authentication, direct AWS S3 video management, scalable background processing, and a user-friendly web interface.
+
+---
 
 ## Table of Contents
 
-1. [Key Features](#key-features)
-2. [Technology Stack](#technology-stack)
-3. [Architecture](#architecture)
-4. [Getting Started](#getting-started)
-5. [Running Locally](#running-locally)
-6. [Environment Variables](#environment-variables)
-7. [Project Structure](#project-structure)
+- [Features](#features)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [Setup & Installation](#setup--installation)
+- [Project Structure](#project-structure)
+- [Handling Critical Challenges](#handling-critical-challenges)
+- [Usage](#usage)
+- [License](#license)
 
-## Key Features
+---
 
-* **User Authentication:** Secure JWT-based authentication with multiple user roles (Admin, S3 Uploader, Viewer).
-* **S3 Video Management:** Direct video uploads to AWS S3 with a structured folder system.
-* **Asynchronous Frame Extraction:** A GPU-optimized service that extracts frames from videos for analysis.
-* **Damage Comparison:** A CPU-bound service that compares video frames to identify and report damages.
-* **Dynamic Dashboard:** Real-time monitoring of system status, storage usage, and processing metrics.
-* **Task Management:** View the status of ongoing processing tasks and cancel them if needed.
-* **Optimized Caching:** Redis is used for caching API responses to reduce load times and improve user experience.
+## Features
+
+- **Role-Based Authentication**  
+  Secure JWT-based authentication supporting multiple user roles (e.g., administrator, uploader).
+
+- **S3-Based Video Management**  
+  Retrieve and process videos directly from AWS S3, searchable by date, client, or camera angle.
+
+- **Asynchronous Frame Extraction**  
+  Uses Celery for non-blocking, scalable extraction of key video frames in the background.
+
+- **Real-Time Task Monitoring**  
+  The frontend polls for background task status, providing users with live progress updates.
+
+- **Result Visualization**  
+  Gallery view displays extracted frames securely loaded from S3.
+
+- **Containerized Environment**  
+  Entire stack is Dockerized for consistent and easy deployment.
+
+---
+
+## System Architecture
+
+```
++-------------------------------------------------------------------------------------------------+
+|                                         User's Browser                                          |
++-------------------------------------------------------------------------------------------------+
+             |                                        ^
+             | HTTP/API Requests                      | UI Updates
+             v                                        |
++--------------------------+           +-----------------------------+          +----------------+
+|    Frontend Container    |           |    Backend (API) Container  |          |      AWS S3    |
+| (React SPA on port 5173) |-----------| (Flask Server on port 5000) |<-------->| (Video Storage)|
++--------------------------+           +-----------------------------+          +----------------+
+                                       |                 ^
+                                       | Adds job to     | Reads task status
+                                       | queue           | and results from
+                                       v                 |
++-------------------------------------------------------------------------------------------------+
+|                                    Docker Network (redis)                                       |
++-------------------------------------------------------------------------------------------------+
+      |                 ^                            |                           ^
+      | Task messages   | Task results               | Fetches job from          | Pushes results to
+      | from Backend    | to Backend                 | queue                     | Result Backend
+      v                 |                            v                           |
++--------------------------+           +-----------------------------+
+|     Redis Container      |           |    Worker Container         |
+| (Broker & Result Backend)|<----------|       (Celery)            |
++--------------------------+           +-----------------------------+
+                                                     |
+                                                     | Downloads/Uploads
+                                                     | data from/to
+                                                     v
+                                              +----------------+
+                                              |      AWS S3    |
+                                              +----------------+
+```
+
+**Component Overview:**
+
+- **Frontend:** React SPA (port 5173). Talks to backend via REST API.
+- **Backend (API):** Flask (port 5000). Handles auth, data serving, and job delegation.
+- **Redis:** Message broker and result backend for Celery.
+- **Worker:** Celery process for long-running video processing tasks.
+- **AWS S3:** Centralized video and frame storage.
+- **Docker Compose:** Orchestrates all services for seamless dev/prod setup.
+
+---
 
 ## Technology Stack
 
-* **Frontend:** React, Vite, CSS
-* **Backend:** Flask, Python
-* **Task Queue:** Celery
-* **Message Broker/Cache:** Redis
-* **Database/Storage:** AWS S3
-* **Containerization:** Docker, Docker Compose
+- **Backend:** Python, Flask, Celery, Redis, PyJWT, Boto3, Ultralytics YOLO, OpenCV
+- **Frontend:** JavaScript, React, Vite, Bootstrap
+- **Infrastructure:** Docker, Docker Compose
 
-## Architecture
+---
 
-The application is designed as a distributed system to efficiently handle different types of workloads. The core of the backend is split into two main services, each with its own dedicated worker pool, orchestrated by a central task broker (Redis).
-
-### App Service (CPU-Bound)
-
-* Runs the Flask application and Celery worker subscribed to `cpu_queue`
-* Handles API requests, user management, dashboard views, and damage comparisons
-
-### GPU Service (GPU-Bound)
-
-* Runs a dedicated Celery worker subscribed to `gpu_queue`
-* Handles computationally expensive frame extraction tasks using GPU acceleration
-
-### Architecture Diagram
-
-```
-+------------------+
-|  User's Browser  |
-| (React Frontend) |
-+------------------+
-        |
-        | HTTP/API Calls
-        v
-+--------------------------------------------------------------------------+
-|                        App Service (CPU-Intensive)                         |
-|                                                                          |
-|  +-----------------+      +--------------------+      +----------------+  |
-|  | Flask Backend   |----->|   run_comparison() |----->| Redis Broker   |  |
-|  | (API Endpoints) |      +--------------------+      | (Task Queue)   |  |
-|  +-----------------+      (Sends to cpu_queue)       +-------+--------+  |
-|          ^                                                   |             |
-|          |                                                   | cpu.task    |
-|          |  (Sends to gpu_queue)                             v             |
-|  +---------------------+                           +--------------------+  |
-|  | frame_extraction()  |                           | CPU Celery Worker  |  |
-|  +---------------------+                           | (Consumes cpu_queue) |  |
-|                                                    +--------------------+  |
-+--------------------------------------------------------------------------+
-        |
-        | gpu.task
-        v
-+--------------------------------------------------------------------------+
-|                       GPU Service (GPU-Intensive)                          |
-|                                                                          |
-|                               +---------------------+                      |
-|                               | GPU Celery Worker   |                      |
-|                               | (Consumes gpu_queue)|                      |
-|                               +---------------------+                      |
-+--------------------------------------------------------------------------+
-```
-
-## Getting Started
-
-Follow these instructions to get the project running on your local machine.
+## Setup & Installation
 
 ### Prerequisites
 
-* Docker and Docker Compose
-* Git
-* An AWS S3 bucket and IAM user credentials with appropriate permissions.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
 
-### Installation
+### 1. Clone the Repository
 
-1. **Clone the repository:**
-
-   ```sh
-   git clone https://github.com/Sabarna07-tech/super-octo-fiesta.git
-   cd super-octo-fiesta
-   ```
-
-2. **Configure Backend Environment Variables:**
-   Navigate to the `backend` directory and create a file named `.env`. Populate it with the necessary credentials and configuration. See the [Environment Variables](#environment-variables) section for details.
-
-   ```sh
-   cd backend
-   touch .env
-   ```
-
-3. **Configure Frontend Environment Variables:**
-   Navigate to the `frontend` directory, create a `.env` file, and set the API endpoint.
-
-   ```sh
-   # In frontend/.env
-   VITE_API_BASE_URL=http://localhost:5000/api
-   ```
-
-## Running Locally
-
-To simulate the distributed architecture on a local machine, we use two separate `docker-compose` configurations.
-
-### Step 1: Start the App Service
-
-Start Redis, Flask API server, and the CPU worker:
-
-```bash
-cd backend
-docker-compose -f docker-compose.app.yml up --build
+```sh
+git clone https://github.com/AiSPRY/WagonDamageNew.git
+cd WagonDamageNew/backend
 ```
 
-You should see logs for `backend_service` and `cpu_worker_service` connecting to Redis and consuming from `cpu_queue`.
+### 2. Create the Environment File
 
-### Step 2: Start the GPU Service
+Create `backend/.env` and add your AWS credentials and config:
 
-In a second terminal:
-
-```bash
-cd backend
-docker-compose -f docker-compose.gpu.yml up --build
 ```
+AWS_ACCESS_KEY_ID=YOUR_ACTUAL_AWS_ACCESS_KEY
+AWS_SECRET_ACCESS_KEY=YOUR_ACTUAL_AWS_SECRET_KEY
+AWS_REGION=us-east-1
 
-This worker will connect to Redis and consume tasks from `gpu_queue`.
-
-### Step 3: Start the Frontend
-
-In a new terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Step 4: Use the Application
-
-Open your browser to `http://localhost:5173` and begin using the application.
-
-* Triggering a **Damage Comparison** shows logs in the CPU worker terminal.
-* Triggering **Frame Extraction** shows logs in the GPU worker terminal.
-
-## Environment Variables
-
-The following environment variables are required in `backend/.env`:
-
-```env
-FLASK_APP=app:create_app()
-FLASK_ENV=development
-JWT_SECRET_KEY=your-very-secret-key
-JWT_ACCESS_TOKEN_EXPIRES_MINUTES=60
-S3_BUCKET=your-bucket-name
-S3_UPLOAD_FOLDER=uploads
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
-AWS_DEFAULT_REGION=us-east-1
+# Docker-specific configuration
 REDIS_HOST=redis
-REDIS_PORT=6379
 ```
+
+> **Note:** Never commit `.env` to version control.
+
+### 3. Build and Run the Application
+
+From the `backend/` directory, run:
+
+```sh
+docker-compose up --build
+```
+
+This will:
+- Build images and install dependencies.
+- Start `redis-1`, `backend-1`, and `worker-1` containers.
+- Connect all via a shared Docker network.
+
+### 4. Access the Application
+
+- **Frontend:** [http://localhost:5173](http://localhost:5173)
+- **Backend API:** [http://localhost:5000](http://localhost:5000)
+
+### 5. Stopping the Application
+
+- Press `Ctrl+C` in the terminal to stop all containers.
+- To remove containers:  
+  ```sh
+  docker-compose down
+  ```
+
+---
 
 ## Project Structure
 
 ```
 .
-├── backend
-│   ├── api
-│   │   └── routes.py             # Flask API routes
-│   ├── services
-│   │   ├── celery_worker.py      # Celery task setup
-│   │   ├── frame_extractor.py    # GPU-based frame extraction logic
-│   │   ├── compare.py            # CPU-based frame comparison logic
-│   │   └── s3_utils.py           # AWS S3 helper functions
-│   ├── app.py                    # Flask app factory
-│   ├── Dockerfile                # Backend Docker config
-│   ├── docker-compose.app.yml    # CPU-related services
-│   └── docker-compose.gpu.yml    # GPU worker services
-├── frontend
-│   ├── src
-│   │   ├── pages                 # Page-level React components
-│   │   ├── components            # Reusable components
-│   │   └── api                   # API interaction logic
-│   └── ...
-└── README.md
+├── backend/
+│   ├── .env                 # Secret keys and environment variables
+│   ├── app.py               # Main Flask application
+│   ├── config.py            # App configuration
+│   ├── Dockerfile           # Flask app image instructions
+│   ├── docker-compose.yml   # Orchestrates all services
+│   ├── requirements.txt     # Python dependencies
+│   ├── api/
+│   │   └── routes.py        # API endpoint definitions
+│   ├── models/
+│   │   └── best_weights.pt  # Trained YOLO model
+│   └── services/
+│       ├── celery_worker.py     # Celery tasks
+│       ├── frame_extractor.py   # Video processing logic
+│       └── s3_utils.py          # AWS S3 helpers
+└── frontend/
+    ├── package.json         # JS dependencies
+    └── src/
+        ├── App.jsx              # Main React app
+        ├── api/
+        │   └── apiService.js    # Centralized API calls
+        ├── components/          # Reusable components
+        ├── context/
+        │   └── TaskContext.jsx  # Global state manager for tasks
+        └── pages/               # Page/route components
 ```
 
 ---
 
-This setup provides a robust, scalable, and modular solution for video damage detection using distributed services and efficient resource utilization.
+## Handling Critical Challenges
+
+- **Long-Running Tasks:**  
+  Celery enables async video processing, returning a `task_id` so the UI never blocks.
+
+- **Platform Incompatibility:**  
+  Docker ensures consistent Linux environments, eliminating "works on my machine" issues.
+
+- **Frontend State Management:**  
+  React Context API (`TaskContext.jsx`) globally tracks task status, even when navigating pages.
+
+- **Scalability:**  
+  Add more worker containers in `docker-compose.yml` for parallel processing.
+
+---
+
+## Usage
+
+1. **Upload or select videos stored in AWS S3.**
+2. **Start a video analysis job:**  
+   The backend queues the job and returns a `task_id`.
+3. **Monitor progress in real-time:**  
+   The frontend polls the backend for status using the `task_id`.
+4. **View results:**  
+   Extracted frames are displayed in a gallery view, loaded securely from S3.
+5. **Role-based access:**  
+   Only authorized users (by role) can upload, manage, or view results.
+
+---
+
+## License
+
+This project is for demonstration/educational purposes. For production or commercial use, please consult the repository owner and ensure compliance with all third-party dependencies' licenses.
+
+---
+
+> **Questions or Contributions?**  
+  Please open an issue or pull request!
