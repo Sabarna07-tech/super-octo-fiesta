@@ -1,0 +1,38 @@
+# filename: backend/docker-compose.yml
+version: '3.8'
+
+services:
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+    # --- Caching Policy Implementation: Start ---
+    # This command starts the Redis server and passes configuration flags.
+    command: 
+      - redis-server
+      - --maxmemory 512mb
+      - --maxmemory-policy volatile-lru
+    # --- Caching Policy Implementation: End ---
+
+  backend:
+    build: .
+    command: ["flask", "run", "--host=0.0.0.0"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: ["celery", "-A", "services.celery_worker.celery", "worker", "--loglevel=info", "--pool=prefork"]
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - backend

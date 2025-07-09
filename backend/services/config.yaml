@@ -1,0 +1,8 @@
+MODELS:
+  WAGON_MODEL_PATH: "models/best_weights.pt"
+  DAMAGE_MODEL_PATH: "models/detector.pt"
+  TOP_MODEL_PATH: "models/top_damage.pt"
+  CLASS_MAP:
+    0: "crack"
+    1: "gravel"
+    2: "hole"

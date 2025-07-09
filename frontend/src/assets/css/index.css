@@ -1,0 +1,88 @@
+/* Styling for the action cards on the dashboard */
+.action-card {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem;
+    border-radius: 15px;
+    /* Softer corners */
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+
+    /* FIX: Glassmorphism Effect */
+    background: rgba(255, 255, 255, 0.1);
+    /* Semi-transparent background */
+    backdrop-filter: blur(10px);
+    /* The "frosted glass" blur effect */
+    -webkit-backdrop-filter: blur(10px);
+    /* For Safari compatibility */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    /* A subtle border to define the edge */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+    /* A softer, deeper shadow */
+}
+
+.action-card:hover {
+    transform: translateY(-10px);
+    /* A more pronounced lift on hover */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    /* Enhance shadow on hover */
+    background: rgba(255, 255, 255, 0.15);
+    /* Slightly lighten the card on hover */
+}
+
+.card-icon-wrapper {
+    margin: 0 auto 1.5rem auto;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+/* Icon background colors for each card */
+.icon-upload {
+    background: linear-gradient(135deg, #0d6efd, #0a58ca);
+}
+
+.icon-detect {
+    background: linear-gradient(135deg, #198754, #146c43);
+}
+
+.icon-dashboard {
+    background: linear-gradient(135deg, #0dcaf0, #0aa3c2);
+}
+
+.card-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #ffffff;
+    /* FIX: Changed text to white for readability */
+}
+
+.card-description {
+    font-size: 1rem;
+    flex-grow: 1;
+    margin-bottom: 1.5rem;
+    color: #e0e0e0;
+    /* FIX: Changed text to a light grey for readability */
+}
+
+.action-card .btn {
+    font-weight: 500;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: none;
+    align-self: flex-end;
+    /* This was a typo in the original, should be center or stretch */
+    align-self: stretch;
+    /* Make button width of card */
+    margin-top: auto;
+    /* Pushes button to the bottom */
+}
+
+.action-card .btn i {
+    margin-right: 0.5rem;
+}

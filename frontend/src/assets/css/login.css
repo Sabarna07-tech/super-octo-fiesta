@@ -1,0 +1,59 @@
+.card {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.card-header {
+    border-bottom: none;
+    padding: 1rem 0;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.card-footer {
+    padding: 0.75rem;
+}
+
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-right: none;
+}
+
+.form-control {
+    border-left: none;
+}
+
+.form-control:focus {
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+.btn-lg {
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+}
+
+/* Center the login container vertically */
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 170px); /* Adjust to account for navbar and footer */
+}
+
+/* Make inputs more compact */
+.mb-3, .mb-4 {
+    margin-bottom: 1rem !important;
+} 

@@ -1,0 +1,93 @@
+/* Styling for the top statistic cards on the dashboard */
+.dashboard-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-card .card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.dashboard-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+/* FIX: Make card text color react to theme changes */
+.dashboard-card .card-body h3 {
+    color: var(--heading-color);
+}
+
+.card-header h5 {
+    color: var(--heading-color);
+    font-weight: 500;
+}
+
+/* * FIX: Create a proper container for the canvas to ensure it is responsive
+ * and doesn't overflow or get squashed. This is the key to fixing the layout.
+ */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    /* Default height for charts */
+}
+
+/* Media query for larger screens to give charts more space */
+@media (min-width: 992px) {
+    .chart-container {
+        height: 350px;
+    }
+}
+
+/* Makes the canvas fill the container perfectly */
+.chart-container canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Ensure breadcrumb links match the theme */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+    margin-bottom: 0;
+}
+
+.breadcrumb-item a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.breadcrumb-item+.breadcrumb-item::before {
+    color: var(--muted-text-color);
+}
+
+.breadcrumb-item.active {
+    color: var(--muted-text-color);
+}
+
+/* General container and row cleanup to prevent overflow */
+.container-fluid {
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+.row {
+    margin-right: -15px;
+    margin-left: -15px;
+}

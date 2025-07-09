@@ -1,0 +1,29 @@
+# Flask and Web Server
+Flask==2.3.3
+Werkzeug==2.3.7
+gunicorn==22.0.0
+python-dotenv==1.0.0
+Flask-WTF==1.1.1
+Flask-Cors==4.0.0
+PyJWT==2.8.0
+
+# Data and ML
+pandas==2.1.1
+numpy==1.26.4
+ultralytics==8.3.0
+opencv-python-headless==4.9.0.80
+# EDITED: Downgraded torch and torchvision to be compatible with Python 3.10
+torch==2.2.0
+torchvision==0.17.0
+Pillow==10.0.1
+
+# S3 and Async Tasks
+boto3==1.28.63
+celery==5.4.0
+redis==5.0.4
+eventlet==0.40.0
+
+# Reporting
+reportlab==4.0.4
+
+setuptools>=65.0.0

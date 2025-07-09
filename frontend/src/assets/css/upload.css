@@ -1,0 +1,96 @@
+.upload-container {
+    padding: 2rem 1rem;
+}
+
+.upload-icon,
+.success-icon {
+    margin-bottom: 1.5rem;
+}
+
+.upload-initial {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 3rem 2rem;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.upload-initial:hover {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+.drag-highlight {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+.upload-stats {
+    font-size: 0.9rem;
+}
+
+.file-icon {
+    width: 70px;
+    height: 75px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    0% {
+        background-position-x: 1rem;
+    }
+}
+
+.progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+}
+/* --- Media Query for Adaptive Adjustments --- */
+
+/* This block of styles will only apply on screens with a max-width of 767px */
+@media (max-width: 767px) {
+
+    /* 1. Reduce the main card's padding to give more room to the content */
+    .card.p-4 {
+        /* Bootstrap's p-4 sets a padding of 1.5rem. We'll reduce it. */
+        padding: 1rem !important;
+    }
+
+    /* 2. Make the step headings smaller on mobile */
+    .card h4 {
+        font-size: 1.2rem;
+        /* Reduce font size from the default */
+        margin-bottom: 1rem;
+        /* Adjust space below the heading */
+    }
+
+    /* 3. Remove the vertical border that separates the columns when they are stacked */
+    .col-md-6.border-start {
+        border-left: none !important;
+        /* Remove the line */
+        padding-top: 1.5rem;
+        /* Add some space above the second section */
+        margin-top: 1.5rem;
+        /* Add more margin */
+        border-top: 1px solid #dee2e6;
+        /* Add a horizontal line instead */
+    }
+
+    /* 4. Ensure the main title is also responsive */
+    .page-title {
+        font-size: 1.5rem;
+    }
+}
