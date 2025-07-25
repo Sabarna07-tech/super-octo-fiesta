@@ -6,6 +6,8 @@ import os
 from dotenv import load_dotenv
 import logging
 import redis
+# --- NEW: Import the scheduler initializer ---
+from services.cache_manager import init_scheduler
 
 load_dotenv()
 
@@ -36,6 +38,13 @@ def create_app():
         os.makedirs(app.config['UPLOAD_FOLDER'])
 
     app.register_blueprint(api_bp, url_prefix='/api')
+
+    # --- NEW: Initialize the scheduler ---
+    if app.redis:
+        init_scheduler(app)
+    else:
+        logging.warning("Redis is not available. The background caching scheduler will not start.")
+    # ------------------------------------
 
     # Optional: Add a health check endpoint
     @app.route('/api/health')

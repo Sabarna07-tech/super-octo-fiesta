@@ -1,3 +1,5 @@
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
 /* Styling for the top statistic cards on the dashboard */
 .dashboard-card {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
@@ -35,7 +37,8 @@
     font-weight: 500;
 }
 
-/* * FIX: Create a proper container for the canvas to ensure it is responsive
+/*
+ * FIX: Create a proper container for the canvas to ensure it is responsive
  * and doesn't overflow or get squashed. This is the key to fixing the layout.
  */
 .chart-container {
@@ -90,4 +93,82 @@
 .row {
     margin-right: -15px;
     margin-left: -15px;
+}
+
+/* Styles for the expandable rows and dropdown */
+.expandable-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.expandable-row:hover {
+    background-color: #f8fafc;
+}
+
+.expand-icon {
+    transition: transform 0.3s ease;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.expand-icon.expanded {
+    transform: rotate(90deg);
+    color: #2563eb;
+}
+
+.expanded-content td {
+    padding: 0 !important;
+    border: 0;
+}
+
+.expanded-details {
+    padding: 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.wagon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.wagon-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.wagon-card.damaged {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+    color: #ef4444;
+}
+
+.wagon-card.warning {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.05);
+    color: #f59e0b;
+}
+
+.wagon-card.clean {
+    color: #0f172a;
+}
+
+.wagon-id {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
+}
+
+.wagon-status {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }

@@ -9,6 +9,8 @@ import cv2
 import json
 import numpy as np
 import re
+import logging
+from datetime import datetime
 
 
 def download_files_from_s3_to_temp(bucket:str, s3_path: str, temp_dir:str):
@@ -19,7 +21,7 @@ def download_files_from_s3_to_temp(bucket:str, s3_path: str, temp_dir:str):
     
     try:
         if "Contents" not in response:
-            print("No files found.")
+            logging.warning(f"No files found in S3 at prefix: {s3_path}")
             return []
 
         for obj in response["Contents"]:
@@ -31,9 +33,9 @@ def download_files_from_s3_to_temp(bucket:str, s3_path: str, temp_dir:str):
             s3.download_file(bucket, key, local_file_path)
             local_paths.append(os.path.basename(key))
     except FileNotFoundError as fe:
-        print(f"can't create temp dir : {temp_dir}")
+        logging.error(f"Can't create temp dir : {temp_dir}", exc_info=True)
     except Exception as e:
-        print("Something went wrong :\n",e)
+        logging.error(f"Something went wrong during S3 download: {e}", exc_info=True)
 
     return local_paths
     
@@ -49,7 +51,6 @@ def upload_image_to_s3(image_np, bucket_name, s3_key):
     image_bytes = io.BytesIO(encoded_image.tobytes())
 
     client.upload_fileobj(image_bytes, bucket_name, s3_key, ExtraArgs={'ContentType': 'image/jpeg'})
-    # print(f"Uploaded image to s3://{bucket_name}/{s3_key}")
     
     
 def upload_json_to_s3(json_data, bucket_name, s3_key):
@@ -60,7 +61,6 @@ def upload_json_to_s3(json_data, bucket_name, s3_key):
     json_bytes = io.BytesIO(json.dumps(json_data, indent=2).encode('utf-8'))
 
     client.upload_fileobj(json_bytes, bucket_name, s3_key, ExtraArgs={'ContentType': 'application/json'})
-    # print(f"Uploaded JSON to s3://{bucket_name}/{s3_key}")
 
 def check_folder_exists_in_s3(bucket_name,folder_prefix):
     """
@@ -77,9 +77,6 @@ def check_folder_exists_in_s3(bucket_name,folder_prefix):
     )
     
     return 'Contents' in response and len(response['Contents']) > 0
-    
-    
-
 
 def upload_to_s3_from_folder(output_dir, bucket_name, s3_folder):
     client = get_s3_client()
@@ -102,12 +99,12 @@ def read_s3_json(bucket_name, s3_key):
         return json_data
     except ClientError as ex:
         if ex.response['Error']['Code'] == 'NoSuchKey':
-            print(f"JSON file not found at s3://{bucket_name}/{s3_key}")
+            logging.warning(f"JSON file not found at s3://{bucket_name}/{s3_key}")
             return None
         else:
             raise
     except Exception as e:
-        print(f"Error reading JSON from s3://{bucket_name}/{s3_key}: {e}")
+        logging.error(f"Error reading JSON from s3://{bucket_name}/{s3_key}: {e}", exc_info=True)
         return None
 
 def list_s3_objects(bucket_name, prefix, extension=None):
@@ -118,7 +115,6 @@ def list_s3_objects(bucket_name, prefix, extension=None):
     s3 = get_s3_client()
     paginator = s3.get_paginator('list_objects_v2')
     
-    # Ensure prefix is treated as a folder
     if not prefix.endswith('/'):
         prefix += '/'
         
@@ -129,7 +125,6 @@ def list_s3_objects(bucket_name, prefix, extension=None):
             if "Contents" in page:
                 for obj in page['Contents']:
                     key = obj['Key']
-                    # Skip the folder's own key or any sub-folders to ensure only files are processed
                     if key == prefix or key.endswith('/'):
                         continue
                     
@@ -140,7 +135,7 @@ def list_s3_objects(bucket_name, prefix, extension=None):
                         object_keys.append(key)
         return object_keys
     except Exception as e:
-        print(f"Error listing objects in s3://{bucket_name}/{prefix}: {e}")
+        logging.error(f"Error listing objects in s3://{bucket_name}/{prefix}: {e}", exc_info=True)
         return []
 
 
@@ -150,10 +145,8 @@ def get_s3_public_url(bucket_name, s3_key):
     """
     s3 = get_s3_client()
     try:
-        # Ensure the object exists before generating a URL
         s3.head_object(Bucket=bucket_name, Key=s3_key)
         
-        # Generate a presigned URL that is valid for 1 hour (3600 seconds)
         url = s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': bucket_name, 'Key': s3_key},
@@ -162,69 +155,60 @@ def get_s3_public_url(bucket_name, s3_key):
         return url
     except ClientError as e:
         if e.response['Error']['Code'] == '404':
-            print(f"Cannot generate URL. Object not found at s3://{bucket_name}/{s3_key}")
+            logging.warning(f"Cannot generate URL. Object not found at s3://{bucket_name}/{s3_key}")
         else:
-            print(f"ClientError generating URL for s3://{bucket_name}/{s3_key}: {e}")
+            logging.error(f"ClientError generating URL for s3://{bucket_name}/{s3_key}: {e}", exc_info=True)
         return None
     except Exception as e:
-        print(f"Error generating URL for s3://{bucket_name}/{s3_key}: {e}")
+        logging.error(f"Error generating URL for s3://{bucket_name}/{s3_key}: {e}", exc_info=True)
         return None
 
 def find_comparison_dates_with_results(bucket_name, base_prefix):
     """
-    Returns a list of date strings (YYYY-MM-DD) for which at least one admin1 folder contains a Comparision_Results folder (with files in any subfolder) in S3.
-    Accepts both YYYY-MM-DD and DD-MM-YYYY date folder formats.
+    OPTIMIZED: Efficiently finds dates with comparison results by listing relevant
+    files directly instead of iterating through folders.
     """
     s3 = get_s3_client()
     if not base_prefix.endswith('/'):
         base_prefix += '/'
+    
     paginator = s3.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket_name, Prefix=base_prefix, Delimiter='/')
-    date_folders = set()
-    date_pattern1 = re.compile(r'^(\d{4}-\d{2}-\d{2})$')  # YYYY-MM-DD
-    date_pattern2 = re.compile(r'^(\d{2}-\d{2}-\d{4})$')  # DD-MM-YYYY
-
-    print(f"Scanning base_prefix: {base_prefix}")
-    for page in pages:
-        print("Page CommonPrefixes:", page.get('CommonPrefixes', []))
-        for cp in page.get('CommonPrefixes', []):
-            date_folder = cp['Prefix'][len(base_prefix):].strip('/')
-            print("  Found date folder:", date_folder)
-            if date_pattern1.match(date_folder) or date_pattern2.match(date_folder):
-                date_folders.add(date_folder)
+    # Search for any JSON file within any 'Comparision_Results' folder.
+    # This is much faster than listing directories level by level.
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=base_prefix)
+    
     valid_dates = set()
-    for date in date_folders:
-        date_prefix = f"{base_prefix}{date}/"
-        print(f"Checking date: {date} (prefix: {date_prefix})")
-        admin_pages = s3.get_paginator('list_objects_v2').paginate(Bucket=bucket_name, Prefix=date_prefix, Delimiter='/')
-        found = False
-        for admin_page in admin_pages:
-            print("  Admin CommonPrefixes:", admin_page.get('CommonPrefixes', []))
-            for admin_cp in admin_page.get('CommonPrefixes', []):
-                admin_prefix = admin_cp['Prefix']
-                print("    Found admin folder:", admin_prefix)
-                comp_results_prefix = f"{admin_prefix}Comparision_Results/"
-                print("      Checking for files under:", comp_results_prefix)
-                resp = s3.list_objects_v2(Bucket=bucket_name, Prefix=comp_results_prefix, MaxKeys=10)
-                print("      S3 response Contents:", resp.get('Contents', []))
-                if 'Contents' in resp:
-                    for obj in resp['Contents']:
-                        key = obj['Key']
-                        print("        Found key:", key)
-                        if key.endswith('/'):
-                            continue
-                        found = True
-                        break
-                if found:
-                    if date_pattern2.match(date):
-                        d, m, y = date.split('-')
-                        norm_date = f"{y}-{m}-{d}"
-                    else:
-                        norm_date = date
-                    print(f"      VALID DATE: {norm_date}")
-                    valid_dates.add(norm_date)
-                    break
-            if found:
-                break
-    print("Final valid dates:", valid_dates)
-    return sorted(valid_dates)
+    # Regex to capture the date part (DD-MM-YYYY or YYYY-MM-DD) from the S3 key.
+    # It looks for the base_prefix, then the date, then anything, then 'Comparision_Results'.
+    date_pattern = re.compile(re.escape(base_prefix) + r"(\d{2,4}-\d{2}-\d{2,4}).*?/Comparision_Results/.*\.json")
+
+    logging.info(f"Starting optimized scan for comparison dates under prefix: {base_prefix}")
+    
+    object_count = 0
+    for page in pages:
+        if "Contents" not in page:
+            continue
+            
+        for obj in page['Contents']:
+            object_count += 1
+            key = obj['Key']
+            match = date_pattern.search(key)
+            if match:
+                date_str = match.group(1)
+                # Normalize the date to YYYY-MM-DD format for consistency
+                try:
+                    # Try parsing as DD-MM-YYYY first
+                    dt_obj = datetime.strptime(date_str, '%d-%m-%Y')
+                    normalized_date = dt_obj.strftime('%Y-%m-%d')
+                    valid_dates.add(normalized_date)
+                except ValueError:
+                    try:
+                        # Fallback to parsing as YYYY-MM-DD
+                        dt_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                        normalized_date = dt_obj.strftime('%Y-%m-%d')
+                        valid_dates.add(normalized_date)
+                    except ValueError:
+                        logging.warning(f"Found a file with an invalid date format in key: {key}")
+
+    logging.info(f"Scanned {object_count} S3 objects and found {len(valid_dates)} unique dates with results.")
+    return sorted(list(valid_dates))

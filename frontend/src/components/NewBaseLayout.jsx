@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import LogoutModal from './LogoutModal';
 
 const Sidebar = ({ isCollapsed, onLogoutClick }) => {
@@ -77,6 +77,7 @@ const TopBar = ({ toggleSidebar, pageTitle }) => (
 const NewBaseLayout = () => {
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+    const location = useLocation();
 
     const toggleSidebar = () => {
         setSidebarCollapsed(!isSidebarCollapsed);
@@ -89,9 +90,10 @@ const NewBaseLayout = () => {
     
     // Dynamically set page title based on the current path
     const getPageTitle = () => {
-        const path = window.location.pathname;
+        const path = location.pathname;
         if (path.includes('/new-dashboard')) return 'Train Inspection Dashboard';
-        if (path.includes('/upload')) return 'Retrieve & Process from S3';
+        if (path.includes('/comparison')) return 'Damage Comparison';
+        if (path.includes('/frame_extraction')) return 'Frame Extraction';
         if (path.includes('/s3_dashboard')) return 'Upload to S3';
         return 'Wagon Damage Detection';
     };

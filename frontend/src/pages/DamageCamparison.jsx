@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
-import { postCompare, cancelTask } from '../api/apiService.js';
+import { useNavigate } from 'react-router-dom';
+// --- NEW: Import the refreshCache function ---
+import { postCompare, cancelTask, refreshCache } from '../api/apiService.js';
 
 const DamageComparison = () => {
     const [clientId, setClientId] = useState('');
@@ -10,10 +11,12 @@ const DamageComparison = () => {
     const [status, setStatus] = useState('');
     const [error, setError] = useState('');
     const [taskId, setTaskId] = useState(null);
-    const navigate = useNavigate(); // Initialize useNavigate
+    const navigate = useNavigate();
+
+    // --- NEW: State for the reload button ---
+    const [isReloading, setIsReloading] = useState(false);
 
     useEffect(() => {
-        // Set today's date as default
         const today = new Date().toISOString().split('T')[0];
         setRetrieveDate(today);
     }, []);
@@ -31,21 +34,20 @@ const DamageComparison = () => {
             setTaskId(null);
         } catch (err) {
             console.error(err);
-            setError('Error while starting comparison. Please check server logs.');
+            setError('Error while cancelling task. Please check server logs.');
         }
     }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Redirect to a new page for the 'top' camera angle
         if (cameraAngle === 'top') {
             navigate('/run_top_comparison', { state: { clientId, retrieveDate } });
             return;
         }
 
         if (taskId) {
-            setStatus("Already One task is queued. Please Wait for it to finish.");
+            setStatus("Already one task is queued. Please wait for it to finish.");
             return;
         }
         setIsLoading(true);
@@ -74,10 +76,43 @@ const DamageComparison = () => {
         }
     };
 
+    // --- NEW: Handler for the reload button ---
+    const handleReload = async () => {
+        setIsReloading(true);
+        setStatus('Reloading data from S3...');
+        setError('');
+        try {
+            const res = await refreshCache();
+            if (res.success) {
+                setStatus(res.message);
+            } else {
+                setError(res.error || 'Failed to reload data.');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('An error occurred while reloading data.');
+        } finally {
+            setIsReloading(false);
+        }
+    };
+
     return (
         <div className="data-section fade-in">
             <div className="section-header">
                 <h2 className="section-title">Run Damage Comparison</h2>
+                {/* --- NEW: Reload Button --- */}
+                <button 
+                    onClick={handleReload} 
+                    className="action-btn secondary ms-auto" 
+                    disabled={isReloading}
+                    style={{ minWidth: '150px' }} // Added for consistent width
+                >
+                    {isReloading ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Reloading...</>
+                    ) : (
+                        <><i className="fas fa-sync-alt me-2"></i>Reload Data</>
+                    )}
+                </button>
             </div>
             <div className="p-4">
                 <form onSubmit={handleSubmit}>
@@ -116,7 +151,7 @@ const DamageComparison = () => {
                     </div>
                 )}
 
-                {status && <div className="alert alert-success mt-4">{status}</div>}
+                {status && <div className="alert alert-info mt-4">{status}</div>}
                 {error && <div className="alert alert-danger mt-4">{error}</div>}
             </div>
         </div>

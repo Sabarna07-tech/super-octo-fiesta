@@ -39,6 +39,10 @@ from services.compare import run_comparison
 
 from services.com_s3_utils import find_comparison_dates_with_results
 
+# --- NEW: Import the cache refresh function ---
+from services.cache_manager import refresh_cache_now
+
+
 # --- Blueprint and Mock Data ---
 api_bp = Blueprint('api', __name__)
 
@@ -610,3 +614,21 @@ def get_comparisons(current_user):
     except Exception as e:
         current_app.logger.error(f"Error setting Redis cache: {e}")
     return jsonify(response_data)
+
+# --- NEW: Route for manually refreshing the cache ---
+@api_bp.route('/cache/refresh', methods=['POST'])
+@token_required
+def refresh_cache(current_user):
+    """
+    Manually triggers a refresh of the S3 comparison data cache.
+    """
+    if not hasattr(current_app, 'redis') or not current_app.redis:
+        return jsonify({'success': False, 'error': 'Cache (Redis) is not available.'}), 500
+
+    # The refresh_cache_now function handles its own logging and exceptions
+    success, message = refresh_cache_now(current_app)
+
+    if success:
+        return jsonify({'success': True, 'message': message}), 200
+    else:
+        return jsonify({'success': False, 'error': message}), 500

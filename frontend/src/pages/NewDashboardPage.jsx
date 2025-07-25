@@ -180,9 +180,9 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
                                             <table className="table table-bordered table-hover">
                                                 <thead className="table-light"><tr><th className="align-middle text-center" style={{width: '100px'}}>Wagon #</th><th className="text-center">Left View</th><th className="text-center">Right View</th><th className="text-center">Top View</th></tr></thead>
                                                 <tbody>
-                                                    {details && details.length > 0 ? details.map(wagon => (
+                                                    {details && details.length > 0 ? details.map((wagon, index) => (
                                                         <tr key={wagon.wagon_id}>
-                                                            <td className="text-center align-middle"><strong>{wagon.wagon_id}</strong></td>
+                                                            <td className="text-center align-middle"><strong>{`WAG${index + 1}`}</strong></td>
                                                             <td className="p-0">{renderDetailTable(wagon.left_view_details)}</td>
                                                             <td className="p-0">{renderDetailTable(wagon.right_view_details)}</td>
                                                             <td className="p-0">{renderTopViewDetailTable(wagon.top_view_details)}</td>
@@ -244,7 +244,7 @@ const ComparisonViewModal = ({ isOpen, onClose, entry, view }) => {
                                     </div>
                                     {/* Table below image */}
                                     <div style={{ width: '100%' }}>
-                                        <h6 style={{marginBottom: '1rem', color:'#1a202c', fontWeight:700}}>Wagon: {data.wagon_id || idx+1}</h6>
+                                        <h6 style={{marginBottom: '1rem', color:'#1a202c', fontWeight:700}}>Wagon: {`WAG${idx + 1}`}</h6>
                                         {view === 'top' ? (
                                             <table className="table table-sm table-bordered">
                                                 <thead><tr><th>Cracks</th><th>Gravel</th><th>Hole</th></tr></thead>
@@ -257,7 +257,6 @@ const ComparisonViewModal = ({ isOpen, onClose, entry, view }) => {
                                         ) : (
                                             <>
                                                 {renderClassCountTable(data)}
-                                                <div className="mb-2" style={{color:'#1a202c', fontWeight:600}}><strong>Generated On:</strong> {data?.generated_on || '-'}</div>
                                             </>
                                         )}
                                     </div>
@@ -272,11 +271,11 @@ const ComparisonViewModal = ({ isOpen, onClose, entry, view }) => {
     );
 };
 
-// Helper to normalize date to YYYY-MM-DD
+// Helper to normalize date to 'yyyy-MM-dd'
 const normalizeDate = (dateStr) => {
-    // Try parsing as YYYY-MM-DD
+    // Try parsing as 'yyyy-MM-dd'
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    // Try parsing as DD-MM-YYYY
+    // Try parsing as 'dd-MM-yyyy'
     if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
         const [d, m, y] = dateStr.split('-');
         return `${y}-${m}-${d}`;
@@ -309,6 +308,14 @@ const NewDashboardPage = () => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [filterRange, setFilterRange] = useState('all');
     const pieChartRef = useRef(null);
+    const [expandedRows, setExpandedRows] = useState({});
+
+    const toggleRow = (index) => {
+        setExpandedRows(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
     
     const handleOpenComparisonModal = async (trainData) => {
         setSelectedComparisonTrain(trainData);
@@ -566,7 +573,9 @@ const NewDashboardPage = () => {
             default:
                 break;
         }
-        return filtered;
+        // Create a shallow copy and sort by date descending
+        const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+        return sorted;
     };
 
     const totalTrains = comparisonEntries.length;
@@ -638,34 +647,81 @@ const NewDashboardPage = () => {
                     <div className="table-responsive">
                         <table className="data-table">
                             <thead>
-                                <tr><th>Date</th><th>User</th><th>Actions</th></tr>
+                                <tr>
+                                    <th style={{ width: '40px' }}></th>
+                                    <th>Date</th>
+                                    <th>User</th>
+                                    <th>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={3} className="text-center text-muted">Loading...</td></tr>
+                                    <tr><td colSpan={4} className="text-center text-muted">Loading...</td></tr>
                                 ) : error ? (
-                                    <tr><td colSpan={3} className="text-center text-danger">{error}</td></tr>
+                                    <tr><td colSpan={4} className="text-center text-danger">{error}</td></tr>
                                 ) : getFilteredEntries().length === 0 ? (
-                                    <tr><td colSpan={3} className="text-center text-muted">No data found.</td></tr>
+                                    <tr><td colSpan={4} className="text-center text-muted">No data found.</td></tr>
                                 ) : (
-                                    getFilteredEntries().map((entry, idx) => (
-                                        <tr key={idx}>
-                                            <td>{entry.date}</td>
-                                            <td>{entry.user}</td>
-                                            <td>
-                                                {['left','right','top'].map(view => (
-                                                    <button
-                                                        key={view}
-                                                        className="action-btn primary me-2"
-                                                        onClick={() => { setSelectedEntry(entry); setSelectedView(view); setModalOpen(true); }}
-                                                        disabled={!entry.results[view]}
-                                                    >
-                                                        {view.charAt(0).toUpperCase() + view.slice(1)}
-                                                    </button>
-                                                ))}
-                                            </td>
-                                        </tr>
-                                    ))
+                                    getFilteredEntries().map((entry, idx) => {
+                                        const isExpanded = expandedRows[idx];
+                                        const wagonCount = entry.results?.left?.length || entry.results?.right?.length || entry.results?.top?.length || 0;
+                                        
+                                        // Generate custom wagon data for the dropdown
+                                        const wagonsData = Array.from({ length: wagonCount }, (_, i) => {
+                                            const wagonId = `WAG${i + 1}`;
+                                            // Determine status based on dummy logic
+                                            let status = 'Clean';
+                                            if (entry.results?.left?.[i]?.NEW?.length > 0 || entry.results?.right?.[i]?.NEW?.length > 0) {
+                                                status = 'Damaged';
+                                            } else if (entry.results?.left?.[i]?.OLD?.length > 0 || entry.results?.right?.[i]?.OLD?.length > 0) {
+                                                status = 'Warning';
+                                            } else if (entry.results?.top?.[i] && (entry.results.top[i].cracks > 0 || entry.results.top[i].hole > 0 || entry.results.top[i].gravel > 0)) {
+                                                status = 'Damaged';
+                                            }
+                                            return { id: wagonId, status: status };
+                                        });
+
+                                        return (
+                                            <React.Fragment key={idx}>
+                                                <tr className="expandable-row" onClick={() => toggleRow(idx)}>
+                                                    <td>
+                                                        <i className={`fas fa-chevron-right expand-icon ${isExpanded ? 'expanded' : ''}`}></i>
+                                                    </td>
+                                                    <td>{entry.date}</td>
+                                                    <td>{entry.user}</td>
+                                                    <td>
+                                                        {['left','right','top'].map(view => (
+                                                            <button
+                                                                key={view}
+                                                                className="action-btn primary me-2"
+                                                                onClick={(e) => { e.stopPropagation(); setSelectedEntry(entry); setSelectedView(view); setModalOpen(true); }}
+                                                                disabled={!entry.results[view]}
+                                                            >
+                                                                {view.charAt(0).toUpperCase() + view.slice(1)}
+                                                            </button>
+                                                        ))}
+                                                    </td>
+                                                </tr>
+                                                {isExpanded && (
+                                                    <tr className="expanded-content">
+                                                        <td colSpan="4">
+                                                            <div className="expanded-details">
+                                                                <h4 style={{ marginBottom: '1rem', color: '#333' }}>Wagon Details ({wagonCount} Wagons)</h4>
+                                                                <div className="wagon-grid">
+                                                                    {wagonsData.map(wagon => (
+                                                                        <div key={wagon.id} className={`wagon-card ${wagon.status.toLowerCase()}`}>
+                                                                            <div className="wagon-id">{wagon.id}</div>
+                                                                            <div className="wagon-status">{wagon.status}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        )
+                                    })
                                 )}
                             </tbody>
                         </table>
