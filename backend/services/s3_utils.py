@@ -192,15 +192,18 @@ def generate_presigned_url(bucket_name, s3_key, expiration=3600):
         return None
 
 
-def upload_file_to_s3(file, bucket_name, folder_path):
+def upload_file_to_s3(file, bucket_name, folder_path, filename=None):
     """Upload a file to S3 and return the S3 key."""
     try:
         s3_client = get_s3_client()
         if s3_client is None:
             return False, "S3 client initialization failed", None
         
-        original_filename = secure_filename(file.filename)
-        s3_key = os.path.join(folder_path, original_filename).replace("\\", "/")
+        if filename:
+            safe_filename = secure_filename(filename)
+        else:
+            safe_filename = secure_filename(file.filename)
+        s3_key = os.path.join(folder_path, safe_filename).replace("\\", "/")
         
         logger.info(f"Uploading file to S3 key: {s3_key}")
         
@@ -212,8 +215,8 @@ def upload_file_to_s3(file, bucket_name, folder_path):
             ContentType=file.content_type
         )
         
-        logger.info(f"Successfully uploaded {original_filename} to S3.")
-        return True, f"File {original_filename} uploaded successfully.", s3_key
+        logger.info(f"Successfully uploaded {safe_filename} to S3.")
+        return True, f"File {safe_filename} uploaded successfully.", s3_key
         
     except ClientError as e:
         logger.error(f"S3 client error during upload: {e}")

@@ -169,7 +169,7 @@ h1,
 }
 
 .modal-body {
-    background-color: var(--bg-gradient);
+    background-color: #dbdbdb;
 }
 
 .modal-footer {

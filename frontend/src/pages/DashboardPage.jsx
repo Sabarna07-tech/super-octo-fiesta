@@ -23,7 +23,9 @@ const DamageDetailsModal = ({ isOpen, onClose, data }) => {
                                     <span><strong>Wagons:</strong> {data.wagons}</span>
                                 </div>
                             </div>
-                            <button type="button" className="btn-close" onClick={onClose}></button>
+                            <button type="button" className="custom-close-btn" onClick={onClose} aria-label="Close">
+                                <i className="fas fa-times" style={{ fontSize: '1.2rem', lineHeight: '1' }}></i>
+                            </button>
                         </div>
                         <div className="modal-body" style={{ display: 'flex', maxHeight: '75vh' }}>
                             <div className="flex-grow-1" style={{ overflowY: 'auto' }}>
@@ -91,11 +93,65 @@ const DashboardPage = () => {
         };
 
         const weeklyCtx = document.getElementById('weeklyTrainsChart');
-        createChart(weeklyCtx, { type: 'line', data: { labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], datasets: [{ label: 'Trains Processed', data: [285, 312, 298, 352], borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', tension: 0.4, fill: true }] } });
+        createChart(weeklyCtx, { 
+            type: 'line', 
+            data: { 
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], 
+                datasets: [{ 
+                    label: 'Trains Processed', 
+                    data: [285, 312, 298, 352], 
+                    borderColor: '#B0C4DE', 
+                    backgroundColor: 'rgba(176, 196, 222, 0.1)', 
+                    tension: 0.4, 
+                    fill: true 
+                }] 
+            } 
+        });
         const damageCtx = document.getElementById('damageTypesChart');
-        createChart(damageCtx, { type: 'doughnut', data: { labels: ['Scratches', 'Paint', 'Structural', 'Rust', 'Dents'], datasets: [{ data: [45, 23, 12, 15, 18], backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'], borderWidth: 0 }] }, options: { plugins: { legend: { display: false } } } });
+        createChart(damageCtx, { 
+            type: 'doughnut', 
+            data: { 
+                labels: ['Scratches', 'Paint', 'Structural', 'Rust', 'Dents'], 
+                datasets: [{ 
+                    data: [45, 23, 12, 15, 18], 
+                    backgroundColor: [
+                        '#2C3E50', // Hole - Dark Slate Blue
+                        '#27AE60', // Scratch - Green
+                        '#5a8dc1', // Dent - Steel Blue
+                        '#E74C3C', // Open Door - Red
+                        '#8E44AD'  // Crack - Purple
+                    ], 
+                    borderWidth: 0 
+                }] 
+            }, 
+            options: { 
+                plugins: { 
+                    legend: { display: false } 
+                } 
+            } 
+        });
         const severityCtx = document.getElementById('severityTrendsChart');
-        createChart(severityCtx, { type: 'bar', data: { labels: ['Low', 'Medium', 'High', 'Critical'], datasets: [{ label: 'Damage Count', data: [65, 28, 12, 8], backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
+        createChart(severityCtx, { 
+            type: 'bar', 
+            data: { 
+                labels: ['Low', 'Medium', 'High', 'Critical'], 
+                datasets: [{ 
+                    label: 'Damage Count', 
+                    data: [65, 28, 12, 8], 
+                    backgroundColor: [
+                        '#3498DB', // Hole - Light Blue
+                        '#27AE60', // Scratch - Green
+                        '#FF6B35', // Dent - Orange
+                        '#E74C3C'  // Open Door - Red
+                    ] 
+                }] 
+            }, 
+            options: { 
+                plugins: { 
+                    legend: { display: false } 
+                } 
+            } 
+        });
         
         return () => chartInstances.forEach(chart => chart.destroy());
     }, []);

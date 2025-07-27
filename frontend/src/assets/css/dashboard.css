@@ -113,7 +113,7 @@
 
 .expand-icon.expanded {
     transform: rotate(90deg);
-    color: #2563eb;
+    color: #5DADE2;
 }
 
 .expanded-content td {
@@ -146,15 +146,15 @@
 }
 
 .wagon-card.damaged {
-    border-color: #ef4444;
-    background: rgba(239, 68, 68, 0.05);
-    color: #ef4444;
+    border-color: #EC7063;
+    background: rgba(236, 112, 99, 0.05);
+    color: #EC7063;
 }
 
 .wagon-card.warning {
-    border-color: #f59e0b;
-    background: rgba(245, 158, 11, 0.05);
-    color: #f59e0b;
+    border-color: #F5B041;
+    background: rgba(245, 176, 65, 0.05);
+    color: #F5B041;
 }
 
 .wagon-card.clean {

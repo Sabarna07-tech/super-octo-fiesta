@@ -14,7 +14,7 @@ class Config:
     # S3 Configuration
     S3_BUCKET = os.getenv('S3_BUCKET_NAME', 'aispry-project')
     S3_REGION = os.getenv('AWS_REGION', 'us-east-1')
-    S3_UPLOAD_FOLDER = os.getenv('S3_UPLOAD_FOLDER', '2024_Oct_CR_WagonDamageDetection/Wagon_H')
+    S3_UPLOAD_FOLDER = os.getenv('S3_UPLOAD_FOLDER', '2024_Oct_CR_WagonDamageDetection/wagon')
 
     # FIX: Use the Docker service name 'redis' instead of an IP address.
     # The default value is kept for anyone running without Docker.

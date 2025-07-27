@@ -7,9 +7,10 @@
     margin: 0 auto;
 }
 
-.card-header {
+.login-container .card .card-header.bg-primary {
     border-bottom: none;
     padding: 1rem 0;
+    background-color: #1E40AF !important;
 }
 
 .card-body {
@@ -50,10 +51,51 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - 170px); /* Adjust to account for navbar and footer */
+    min-height: 100vh;
+    background: linear-gradient(to left, #2C3E50, #B0C4DE);
 }
 
 /* Make inputs more compact */
 .mb-3, .mb-4 {
     margin-bottom: 1rem !important;
+}
+
+/* Password toggle button styling */
+.btn-outline-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+    color: #ffffff !important;
+}
+
+.btn-outline-secondary:focus {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25) !important;
+}
+
+/* Login button styling */
+.btn-primary {
+    background-color: #1E3A8A !important;
+    border-color: #1E3A8A !important;
+    color: #ffffff !important;
+}
+
+.btn-primary:hover {
+    background-color: #1E40AF !important;
+    border-color: #1E40AF !important;
+    color: #ffffff !important;
+}
+
+.btn-primary:focus {
+    background-color: #1E3A8A !important;
+    border-color: #1E3A8A !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25) !important;
 } 

@@ -141,8 +141,8 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
             <div className="modal-backdrop fade show" style={{ backdropFilter: 'blur(6px)', background: 'rgba(0,0,0,0.3)' }}></div>
             <div className="modal fade show" style={{ display: 'block' }} role="dialog">
                 <div className="modal-dialog modal-xl modal-dialog-centered">
-                    <div className="modal-content" style={{ background: "linear-gradient( #408DA8 65%, #138DC5 100%)" }}>
-                        <div className="modal-header" style={{ background: 'linear-gradient( #408DA8 65%, #138DC5 100%)', color: '#fff', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
+                    <div className="modal-content" style={{ background: "#1E3A8A" }}>
+                        <div className="modal-header" style={{ background: '#1E3A8A', color: '#fff', borderTopLeftRadius: '1rem', borderTopRightRadius: '1rem' }}>
                             <h5 className="modal-title">Comparison Details for {data?.id}</h5>
                             <button
                                 type="button"
@@ -151,7 +151,7 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
                                 aria-label="Close"
                                 style={{ position: 'absolute', top: '6px', right: '12px', zIndex: 2 }}
                             >
-                                <span style={{ fontSize: '1.5rem', lineHeight: '1' }}>×</span>
+                                <i className="fas fa-times" style={{ fontSize: '1.2rem', lineHeight: '1' }}></i>
                             </button>
                         </div>
                         <div className="modal-body">
@@ -204,17 +204,27 @@ const ComparisonDetailModal = ({ isOpen, onClose, data, details, isLoading }) =>
 };
 
 // --- Modal for a single view (Left/Right/Top) ---
-const ComparisonViewModal = ({ isOpen, onClose, entry, view }) => {
+const ComparisonViewModal = ({ isOpen, onClose, entry, view, selectedWagonIndex = null }) => {
     if (!isOpen || !entry || !view) return null;
     const wagons = entry.results[view] || [];
+    
+    // If a specific wagon is selected, filter to show only that wagon
+    const wagonsToShow = selectedWagonIndex !== null ? [wagons[selectedWagonIndex]] : wagons;
+    const wagonIndices = selectedWagonIndex !== null ? [selectedWagonIndex] : wagons.map((_, idx) => idx);
+    
     return (
         <>
             <div className="modal-backdrop fade show" style={{ backdropFilter: 'blur(12px)', background: 'rgba(0,0,0,0.3)' }}></div>
             <div className="modal fade show modal-animate-in" style={{ display: 'block' }} role="dialog">
                 <div className="modal-dialog modal-xl modal-dialog-centered">
-                    <div className="modal-content" style={{ background: '#408DA8', borderRadius: '1rem' }}>
-                        <div className="modal-header" style={{background: '#408DA8', borderRadius: '1rem' }}>
-                            <h5 className="modal-title">{view.charAt(0).toUpperCase() + view.slice(1)} Comparison Result ({entry.date})</h5>
+                    <div className="modal-content" style={{ background: '#1E3A8A', borderRadius: '1rem' }}>
+                        <div className="modal-header" style={{background: '#1E3A8A', borderRadius: '1rem' }}>
+                            <h5 className="modal-title">
+                                {selectedWagonIndex !== null 
+                                    ? `${view.charAt(0).toUpperCase() + view.slice(1)} Comparison - WAG${selectedWagonIndex + 1} (${entry.date})`
+                                    : `${view.charAt(0).toUpperCase() + view.slice(1)} Comparison Result (${entry.date})`
+                                }
+                            </h5>
                             <button
                                 type="button"
                                 className="custom-close-btn"
@@ -222,46 +232,49 @@ const ComparisonViewModal = ({ isOpen, onClose, entry, view }) => {
                                 aria-label="Close"
                                 style={{ position: 'absolute', top: '6px', right: '12px', zIndex: 2 }}
                             >
-                                <span style={{ fontSize: '1.5rem', lineHeight: '1' }}>×</span>
+                                <i className="fas fa-times" style={{ fontSize: '1.2rem', lineHeight: '1' }}></i>
                             </button>
                         </div>
                         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', color: '#222' }}>
-                            {wagons.length === 0 ? (
+                            {wagonsToShow.length === 0 ? (
                                 <div className="text-muted">No data found for this view.</div>
-                            ) : wagons.map((data, idx) => (
-                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch', marginBottom: '2rem', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#f8fafc', color: '#222' }}>
-                                    {/* Wagon Image on top */}
-                                    <div style={{ width: '100%', textAlign: 'center', marginBottom: '1rem' }}>
-                                        {view === 'top' ? (
-                                            <div><strong>Top Image:</strong><br />
-                                                {data?.image_url ? <img src={data.image_url} alt="Top" style={{maxWidth:'100%',maxHeight:260, borderRadius:8, boxShadow:'0 4px 24px rgba(0,0,0,0.12)'}} /> : <span className="text-muted">No image</span>}
-                                            </div>
-                                        ) : (
-                                            <div><strong>Wagon Image:</strong><br />
-                                                {data?.image_url ? <img src={data.image_url} alt="Wagon" style={{maxWidth:'100%',maxHeight:260, borderRadius:8, boxShadow:'0 4px 24px rgba(0,0,0,0.12)'}} /> : <span className="text-muted">No image</span>}
-                                            </div>
-                                        )}
+                            ) : wagonsToShow.map((data, idx) => {
+                                const wagonIndex = wagonIndices[idx];
+                                return (
+                                    <div key={wagonIndex} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch', marginBottom: '2rem', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, background: '#f8fafc', color: '#222' }}>
+                                        {/* Wagon Image on top */}
+                                        <div style={{ width: '100%', textAlign: 'center', marginBottom: '1rem' }}>
+                                            {view === 'top' ? (
+                                                <div><strong>Top Image:</strong><br />
+                                                    {data?.image_url ? <img src={data.image_url} alt="Top" style={{maxWidth:'100%',maxHeight:260, borderRadius:8, boxShadow:'0 4px 24px rgba(0,0,0,0.12)'}} /> : <span className="text-muted">No image</span>}
+                                                </div>
+                                            ) : (
+                                                <div><strong>Wagon Image:</strong><br />
+                                                    {data?.image_url ? <img src={data.image_url} alt="Wagon" style={{maxWidth:'100%',maxHeight:260, borderRadius:8, boxShadow:'0 4px 24px rgba(0,0,0,0.12)'}} /> : <span className="text-muted">No image</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Table below image */}
+                                        <div style={{ width: '100%' }}>
+                                            <h6 style={{marginBottom: '1rem', color:'#1a202c', fontWeight:700}}>Wagon: {`WAG${wagonIndex + 1}`}</h6>
+                                            {view === 'top' ? (
+                                                <table className="table table-sm table-bordered">
+                                                    <thead><tr><th>Cracks</th><th>Gravel</th><th>Hole</th></tr></thead>
+                                                    <tbody><tr>
+                                                        <td>{data?.cracks ?? '-'}</td>
+                                                        <td>{data?.gravel ?? '-'}</td>
+                                                        <td>{data?.hole ?? '-'}</td>
+                                                    </tr></tbody>
+                                                </table>
+                                            ) : (
+                                                <>
+                                                    {renderClassCountTable(data)}
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                    {/* Table below image */}
-                                    <div style={{ width: '100%' }}>
-                                        <h6 style={{marginBottom: '1rem', color:'#1a202c', fontWeight:700}}>Wagon: {`WAG${idx + 1}`}</h6>
-                                        {view === 'top' ? (
-                                            <table className="table table-sm table-bordered">
-                                                <thead><tr><th>Cracks</th><th>Gravel</th><th>Hole</th></tr></thead>
-                                                <tbody><tr>
-                                                    <td>{data?.cracks ?? '-'}</td>
-                                                    <td>{data?.gravel ?? '-'}</td>
-                                                    <td>{data?.hole ?? '-'}</td>
-                                                </tr></tbody>
-                                            </table>
-                                        ) : (
-                                            <>
-                                                {renderClassCountTable(data)}
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="modal-footer"><button type="button" className="custom-close-btn text-btn" onClick={onClose}>Close</button></div>
                     </div>
@@ -304,17 +317,32 @@ const NewDashboardPage = () => {
     const [comparisonEntries, setComparisonEntries] = useState([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState(null);
+    const [selectedWagonIndex, setSelectedWagonIndex] = useState(null); // Track selected wagon index
     const [availableDates, setAvailableDates] = useState([]); // For calendar
     const [selectedDate, setSelectedDate] = useState(null);
     const [filterRange, setFilterRange] = useState('all');
     const pieChartRef = useRef(null);
+    const weeklyLineChartRef = useRef(null); // <-- Add ref for new chart
     const [expandedRows, setExpandedRows] = useState({});
 
     const toggleRow = (index) => {
-        setExpandedRows(prev => ({
-            ...prev,
-            [index]: !prev[index]
-        }));
+        // Close all other expanded rows when opening a new one
+        setExpandedRows(prev => {
+            const newState = {};
+            if (!prev[index]) {
+                // Opening this row, close all others
+                newState[index] = true;
+            }
+            // If closing this row, all rows will be closed
+            return newState;
+        });
+    };
+
+    const handleWagonClick = (entry, wagonIndex, view) => {
+        setSelectedEntry(entry);
+        setSelectedView(view);
+        setSelectedWagonIndex(wagonIndex);
+        setModalOpen(true);
     };
     
     const handleOpenComparisonModal = async (trainData) => {
@@ -496,14 +524,20 @@ const NewDashboardPage = () => {
                     datasets: [{
                         data: chartsData.damage_types.data,
                         backgroundColor: [
-                            '#10b981', // Green for first damage type
-                            '#f59e0b', // Orange for second damage type
-                            '#ef4444', // Red for third damage type
-                            '#8b5cf6', // Purple for fourth damage type
-                            '#06b6d4', // Cyan for fifth damage type
-                            '#f97316', // Additional orange variant
-                            '#84cc16', // Additional green variant
-                            '#ec4899'  // Pink for additional types
+                            '#2C3E50', // Hole - Dark Slate Blue
+                            '#27AE60', // Scratch - Green
+                            '#5a8dc1', // Dent - Steel Blue
+                            '#E74C3C', // Open Door - Red
+                            '#8E44AD', // Crack - Purple
+                            '#2C3E50', // Hole (repeated for more data points)
+                            '#27AE60', // Scratch (repeated for more data points)
+                            '#5a8dc1', // Dent (repeated for more data points)
+                            '#E74C3C', // Open Door (repeated for more data points)
+                            '#8E44AD', // Crack (repeated for more data points)
+                            '#2C3E50', // Hole (repeated for more data points)
+                            '#27AE60', // Scratch (repeated for more data points)
+                            '#5a8dc1', // Dent (repeated for more data points)
+                            '#E74C3C'  // Open Door (repeated for more data points)
                         ],
                         borderWidth: 2,
                         borderColor: '#ffffff'
@@ -538,9 +572,91 @@ const NewDashboardPage = () => {
             });
         }
         const severityCtx = document.getElementById('severityTrendsChart');
-        if (chartsData.damage_types) createChart(severityCtx, { type: 'bar', data: { labels: chartsData.damage_types.labels, datasets: [{ label: 'Damage Count', data: chartsData.damage_types.data, backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626'] }] }, options: { plugins: { legend: { display: false } } } });
+        if (chartsData.damage_types) createChart(severityCtx, { 
+            type: 'bar', 
+            data: { 
+                labels: chartsData.damage_types.labels, 
+                datasets: [{ 
+                    label: 'Damage Count', 
+                    data: chartsData.damage_types.data, 
+                    backgroundColor: [
+                        '#2C3E50', // Hole - Dark Slate Blue
+                        '#27AE60', // Scratch - Green
+                        '#5a8dc1', // Dent - Steel Blue
+                        '#E74C3C', // Open Door - Red
+                        '#8E44AD'  // Crack - Purple
+                    ] 
+                }] 
+            }, 
+            options: { 
+                plugins: { 
+                    legend: { display: false } 
+                } 
+            } 
+        });
+        // --- New: Weekly Trains Processed Line Chart ---
+        if (weeklyLineChartRef.current && comparisonEntries.length > 0) {
+            // Group entries by week (ISO week)
+            const weekMap = {};
+            comparisonEntries.forEach(entry => {
+                const date = new Date(entry.date);
+                // Get ISO week string: 'YYYY-Www'
+                const year = date.getFullYear();
+                const week = getISOWeek(date);
+                const key = `${year}-W${week.toString().padStart(2, '0')}`;
+                weekMap[key] = (weekMap[key] || 0) + 1;
+            });
+            // Sort weeks chronologically
+            const sortedWeeks = Object.keys(weekMap).sort();
+            const weekLabels = sortedWeeks;
+            const weekCounts = sortedWeeks.map(w => weekMap[w]);
+            createChart(weeklyLineChartRef.current, {
+                type: 'line',
+                data: {
+                    labels: weekLabels,
+                    datasets: [{
+                        label: 'Trains Processed',
+                        data: weekCounts,
+                        borderColor: '#B0C4DE',
+                        backgroundColor: 'rgba(176, 196, 222, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#B0C4DE',
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Week' } },
+                        y: { title: { display: true, text: 'Trains' }, beginAtZero: true, precision: 0 }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 800 }
+                }
+            });
+        }
         return () => chartInstances.forEach(chart => chart.destroy());
-    }, [chartsData]);
+    }, [chartsData, comparisonEntries]);
+
+    // --- Helper: Get ISO week number ---
+    function getISOWeek(date) {
+        const tmp = new Date(date.valueOf());
+        const dayNum = (date.getDay() + 6) % 7;
+        tmp.setDate(tmp.getDate() - dayNum + 3);
+        const firstThursday = tmp.valueOf();
+        tmp.setMonth(0, 1);
+        if (tmp.getDay() !== 4) {
+            tmp.setMonth(0, 1 + ((4 - tmp.getDay()) + 7) % 7);
+        }
+        return 1 + Math.ceil((firstThursday - tmp) / 604800000);
+    }
 
     console.log('comparisonData', comparisonData);
 
@@ -589,16 +705,16 @@ const NewDashboardPage = () => {
             <div className="fade-in">
                 <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem', marginBottom: 32 }}>
                     <div className="kpi-card" style={{ minWidth: 0, width: '100%' }}><div className="kpi-header"><span className="kpi-title">Total Trains</span><div className="kpi-icon primary"><i className="fas fa-train"></i></div></div><div className="kpi-value">{totalTrains}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>All time</span></div></div>
-                    <div className="kpi-card" style={{ minWidth: 0, width: '100%' }}><div className="kpi-header"><span className="kpi-title">Variations Observed</span><div className="kpi-icon warning"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{totalVariations}</div><div style={{ fontSize: '0.95em', color: '#666', fontWeight: 500, marginTop: 4 }}>
+                    <div className="kpi-card" style={{ minWidth: 0, width: '100%' }}><div className="kpi-header"><span className="kpi-title">Variations Observed</span><div className="kpi-icon primary"><i className="fas fa-exclamation-triangle"></i></div></div><div className="kpi-value">{totalVariations}</div><div style={{ fontSize: '0.95em', color: '#666', fontWeight: 500, marginTop: 4 }}>
                         Left: {totalLeft} &nbsp;|&nbsp; Right: {totalRight} &nbsp;|&nbsp; Top: {totalTop}
                     </div></div>
                     <div className="kpi-card" style={{ minWidth: 0, width: '100%' }}><div className="kpi-header"><span className="kpi-title">Processing Rate</span><div className="kpi-icon primary"><i className="fas fa-tachometer-alt"></i></div></div><div className="kpi-value">{stats?.processing_speed ?? '...'}</div><div className="kpi-change positive"><i className="fas fa-arrow-up"></i><span>Efficiency</span></div></div>
                 </div>
 
-                <div className="charts-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: 32 }}>
-                    <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Types Distribution</h3></div><div className="chart-container"><div className="chart-container" style={{minHeight: 250}}>
-                        <canvas ref={pieChartRef}></canvas>
-                    </div></div></div>
+                {/* --- Update charts-section to 3 columns --- */}
+                <div className="charts-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem', marginBottom: 32 }}>
+                    <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Weekly Trains Processed</h3></div><div className="chart-container" style={{minHeight: 250}}><canvas ref={weeklyLineChartRef}></canvas></div></div>
+                    <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Types Distribution</h3></div><div className="chart-container"><div className="chart-container" style={{minHeight: 250}}><canvas ref={pieChartRef}></canvas></div></div></div>
                     <div className="chart-card"><div className="chart-header"><h3 className="chart-title">Damage Severity Trends</h3></div><div className="chart-container"><canvas id="severityTrendsChart"></canvas></div></div>
                 </div>
 
@@ -683,9 +799,9 @@ const NewDashboardPage = () => {
 
                                         return (
                                             <React.Fragment key={idx}>
-                                                <tr className="expandable-row" onClick={() => toggleRow(idx)}>
+                                                <tr className={`expandable-row ${isExpanded ? 'expanded' : ''}`} onClick={() => toggleRow(idx)}>
                                                     <td>
-                                                        <i className={`fas fa-chevron-right expand-icon ${isExpanded ? 'expanded' : ''}`}></i>
+                                                        <i className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'} expand-icon ${isExpanded ? 'expanded' : ''}`}></i>
                                                     </td>
                                                     <td>{entry.date}</td>
                                                     <td>{entry.user}</td>
@@ -702,23 +818,37 @@ const NewDashboardPage = () => {
                                                         ))}
                                                     </td>
                                                 </tr>
-                                                {isExpanded && (
-                                                    <tr className="expanded-content">
-                                                        <td colSpan="4">
-                                                            <div className="expanded-details">
-                                                                <h4 style={{ marginBottom: '1rem', color: '#333' }}>Wagon Details ({wagonCount} Wagons)</h4>
-                                                                <div className="wagon-grid">
-                                                                    {wagonsData.map(wagon => (
-                                                                        <div key={wagon.id} className={`wagon-card ${wagon.status.toLowerCase()}`}>
-                                                                            <div className="wagon-id">{wagon.id}</div>
-                                                                            <div className="wagon-status">{wagon.status}</div>
+                                                <tr className="expanded-content">
+                                                    <td colSpan="4">
+                                                        <div className="expanded-details">
+                                                            <h4 style={{ marginBottom: '1rem', color: '#333' }}>Wagon Details ({wagonCount} Wagons)</h4>
+                                                            <div className="wagon-grid">
+                                                                {wagonsData.map((wagon, wagonIndex) => (
+                                                                    <div key={wagon.id} className={`wagon-card ${wagon.status.toLowerCase()}`}>
+                                                                        <div className="wagon-id">{wagon.id}</div>
+                                                                        <div className="wagon-status">{wagon.status}</div>
+                                                                        <div className="wagon-actions">
+                                                                            {['left', 'right', 'top'].map(view => (
+                                                                                <button
+                                                                                    key={view}
+                                                                                    className="wagon-action-btn"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleWagonClick(entry, wagonIndex, view);
+                                                                                    }}
+                                                                                    disabled={!entry.results[view] || !entry.results[view][wagonIndex]}
+                                                                                    title={`View ${view.charAt(0).toUpperCase() + view.slice(1)} Data`}
+                                                                                >
+                                                                                    {view.charAt(0).toUpperCase()}
+                                                                                </button>
+                                                                            ))}
                                                                         </div>
-                                                                    ))}
-                                                                </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             </React.Fragment>
                                         )
                                     })
@@ -738,9 +868,13 @@ const NewDashboardPage = () => {
             />
             <ComparisonViewModal
                 isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
+                onClose={() => {
+                    setModalOpen(false);
+                    setSelectedWagonIndex(null);
+                }}
                 entry={selectedEntry}
                 view={selectedView}
+                selectedWagonIndex={selectedWagonIndex}
             />
         </>
     );

@@ -39,10 +39,9 @@ const LogoutModal = ({ isOpen, onClose }) => {
                     <div className="modal-content">
                         <div className="modal-header">
                             <h5 className="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-                            <button type="button" className="btn-close" onClick={onClose} aria-label="Close"></button>
                         </div>
                         <div className="modal-body">
-                            Are you sure you want to log out?
+                            <span style={{ color: 'black' }}>Are you sure you want to log out?</span>
                         </div>
                         <div className="modal-footer">
                             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

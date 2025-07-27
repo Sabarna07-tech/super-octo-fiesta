@@ -131,6 +131,7 @@ def s3_upload(current_user):
     camera_angle = request.form.get('camera_angle')
     video_type = request.form.get('video_type')
     user_name = request.form.get('user_name')
+    load_status = request.form.get('load_status', '').strip().lower()
 
     if not all([file, upload_date, camera_angle, video_type, user_name]):
         return jsonify({'success': False, 'error': 'Missing form data for S3 upload'}), 400
@@ -141,8 +142,10 @@ def s3_upload(current_user):
     upload_date_str = date_obj.strftime("%d-%m-%Y")
 
     base_folder = current_app.config['S3_UPLOAD_FOLDER']
+    # Override only for video uploads: change 'Wagon_H' to 'wagon' in the base folder
+    video_base_folder = base_folder.replace('Wagon_H', 'wagon')
     folder_path = os.path.join(
-        base_folder,
+        video_base_folder,
         upload_date_str,
         user_name,
         'Raw-videos',
@@ -150,10 +153,19 @@ def s3_upload(current_user):
         video_type
     ).replace("\\", "/")
 
+    # Prepare the filename with load_status if provided
+    original_filename = file.filename
+    if load_status in ['loaded', 'unloaded']:
+        name, ext = os.path.splitext(original_filename)
+        new_filename = f"{name}_{load_status}{ext}"
+    else:
+        new_filename = original_filename
+
     success, message, s3_key = upload_file_to_s3(
         file,
         bucket_name=current_app.config['S3_BUCKET'],
-        folder_path=folder_path
+        folder_path=folder_path,
+        filename=new_filename
     )
     return jsonify({'success': success, 'message': message, 's3_key': s3_key})
 

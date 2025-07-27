@@ -9,7 +9,7 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: linear-gradient(90deg, #ED8E39 35%, #408DA8 65%, #138DC5 100%) !important;
+    background: var(--bg-gradient) !important;
 }
 
 /* Modal Styles */

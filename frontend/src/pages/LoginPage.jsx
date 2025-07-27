@@ -44,7 +44,7 @@ const LoginPage = () => {
         <div className="login-container">
             <div className="col-md-6 col-lg-5 col-xl-4">
                 <div className="card shadow-sm border-0 rounded-lg">
-                    <div className="card-header bg-primary text-white text-center">
+                    <div className="card-header text-white text-center" style={{backgroundColor: '#1E40AF'}}>
                         <h3 className="my-2"><i className="fas fa-lock me-2"></i>Login</h3>
                     </div>
                     <div className="card-body">

@@ -2,7 +2,7 @@
 body {
     font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
     min-height: 100vh;
-    background: linear-gradient(90deg, #ED8E39 35%, #408DA8 65%, #138DC5 100%) !important;
+    background: var(--bg-gradient) !important;
     /* FIX: Removed background-color to allow the gradient from style.css to show. */
 }
 
