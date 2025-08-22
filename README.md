@@ -9,6 +9,7 @@ A full-stack, containerized web application that automatically detects, classifi
 - [Features](#features)
 - [System Architecture](#system-architecture)
 - [Technology Stack](#technology-stack)
+- [Data Engineering Pipeline](#data-engineering-pipeline)
 - [Setup & Installation](#setup--installation)
 - [Project Structure](#project-structure)
 - [Handling Critical Challenges](#handling-critical-challenges)
@@ -84,6 +85,24 @@ A full-stack, containerized web application that automatically detects, classifi
 - **Worker:** Celery process for long-running video processing tasks.
 - **AWS S3:** Centralized video and frame storage.
 - **Docker Compose:** Orchestrates all services for seamless dev/prod setup.
+
+---
+
+## Data Engineering Pipeline
+
+```
++---------------+        +-------+        +---------------------------+        +----------------+
+| Celery Worker | -----> | Kafka | -----> | Spark Structured Streaming | -----> | Delta Lake on S3 |
++---------------+        +-------+        +---------------------------+        +----------------+
+                                                                              |
+                                                                              v
+                                                                        Airflow / dbt
+```
+
+- Celery workers publish detection events to **Kafka**.
+- **Spark Structured Streaming** validates events and writes curated tables to **Delta Lake on S3**.
+- **dbt** models query Silver tables for analytics, while **Airflow** orchestrates streaming and batch jobs.
+- Optional **Great Expectations** checks ensure data quality before promotion.
 
 ---
 

@@ -27,3 +27,4 @@ eventlet==0.40.0
 reportlab==4.0.4
 
 setuptools>=65.0.0
+confluent-kafka==2.3.0

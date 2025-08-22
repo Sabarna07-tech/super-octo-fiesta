@@ -1,0 +1,41 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+  kafka:
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+    depends_on:
+      - zookeeper
+
+  spark-master:
+    image: bitnami/spark:3.5
+    environment:
+      SPARK_MODE: master
+    volumes:
+      - ../spark_jobs:/opt/spark-apps
+  spark-worker:
+    image: bitnami/spark:3.5
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ../spark_jobs:/opt/spark-apps
+
+  airflow:
+    image: apache/airflow:2.9.3
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ../airflow/dags:/opt/airflow/dags
+      - ../spark_jobs:/opt/spark-apps
+    command: webserver
+    depends_on:
+      - spark-master
+      - kafka

@@ -1,12 +1,14 @@
-from celery import Celery,shared_task
+from celery import Celery, shared_task
 from kombu import Queue
 import time
 import logging
-import os 
+import os
+from datetime import datetime
 
 from .frame_extractor import FrameExtractor
 from .s3_utils import list_videos_in_folder
-from .compare import run_comparison,run_top_detection
+from .compare import run_comparison, run_top_detection
+from .kafka_producer import publish_detection
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -74,7 +76,21 @@ def process_single_s3_video_task(self, bucket_name, s3_key):
 
         if not result.get('success'):
              raise RuntimeError(result.get('error', 'Frame extraction failed.'))
-        
+
+        # Publish a detection event for each extracted frame
+        for i in range(result.get('count', 0)):
+            event = {
+                "event_version": 1,
+                "job_id": self.request.id,
+                "frame_s3_uri": f"s3://{bucket_name}/{output_prefix}/frame_{i+1}.jpg",
+                "wagon_id": "",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "model_version": "best_weights.pt",
+                "detections": [],
+                "inference_ms": 0,
+            }
+            publish_detection(event)
+
         final_result = {
             'status': 'Completed',
             'progress': 100,
